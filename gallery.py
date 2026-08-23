@@ -51,6 +51,11 @@ class QueryOptions:
     direction: str = "desc"
     limit: int = DEFAULT_LIMIT
     offset: int = 0
+    min_rating: float | None = None
+    min_year: int | None = None
+    max_year: int | None = None
+    max_runtime: int | None = None
+    is_favorite: bool | None = None
 
     @classmethod
     def from_params(cls: type[QueryOptions], params: dict[str, list[str]]) -> QueryOptions:
@@ -70,7 +75,23 @@ class QueryOptions:
             direction = "desc"
         limit = max(1, min(parse_int_param(params, "limit", DEFAULT_LIMIT), MAX_LIMIT))
         offset = max(0, parse_int_param(params, "offset", 0))
-        return cls(kind, status, tag, query, sort, direction, limit, offset)
+
+        min_rating_raw = first_param(params, "min_rating", "")
+        min_rating = float(min_rating_raw) if min_rating_raw else None
+
+        min_year_raw = first_param(params, "min_year", "")
+        min_year = int(min_year_raw) if min_year_raw else None
+
+        max_year_raw = first_param(params, "max_year", "")
+        max_year = int(max_year_raw) if max_year_raw else None
+
+        max_runtime_raw = first_param(params, "max_runtime", "")
+        max_runtime = int(max_runtime_raw) if max_runtime_raw else None
+
+        fav_raw = first_param(params, "favorite", "").lower()
+        is_favorite = True if fav_raw in ("1", "true", "yes") else None
+
+        return cls(kind, status, tag, query, sort, direction, limit, offset, min_rating, min_year, max_year, max_runtime, is_favorite)
 
 
 def first_param(params: dict[str, list[str]], name: str, default: str) -> str:
@@ -140,7 +161,17 @@ def gallery_where_adjust(where: str) -> str:
 def records_payload(db_path: Path, params: dict[str, list[str]]) -> dict[str, Any]:
     """Fetch paginated visual media records enriched with poster metadata."""
     options = QueryOptions.from_params(params)
-    where, values = cli.media_where(options.kind, options.query, options.status, options.tag)
+    where, values = cli.media_where(
+        options.kind,
+        options.query,
+        options.status,
+        options.tag,
+        options.min_rating,
+        options.min_year,
+        options.max_year,
+        options.max_runtime,
+        options.is_favorite,
+    )
     where = gallery_where_adjust(where)
     count_sql = (
         "SELECT COUNT(DISTINCT m.id) FROM media AS m "
@@ -224,15 +255,29 @@ def summary_payload(db_path: Path) -> dict[str, Any]:
         try:
             poster_files = list(POSTERS_DIR.glob("*.jpg"))
             id_posters = len([p for p in poster_files if p.stem.isdigit()])
+            poster_size_mb = round(sum(p.stat().st_size for p in poster_files) / (1024 * 1024), 2)
         except Exception:
             id_posters = 0
             poster_files = []
+            poster_size_mb = 0.0
+
+        try:
+            db_size_kb = round(db_path.stat().st_size / 1024, 1)
+        except Exception:
+            db_size_kb = 0.0
+
+        try:
+            integrity = conn.execute("PRAGMA integrity_check").fetchone()[0]
+        except Exception:
+            integrity = "ok"
 
         advanced = cli.get_advanced_stats(conn)
 
         return {
             "db_path": str(db_path),
+            "db_size_kb": db_size_kb,
             "schema_version": cli.SCHEMA_VERSION,
+            "sqlite_integrity": integrity,
             "counts": counts,
             "status_counts": status_counts,
             "avg_rating": rating_row[1],
@@ -241,6 +286,7 @@ def summary_payload(db_path: Path) -> dict[str, Any]:
             "posters": {
                 "id_based": id_posters,
                 "total_files": len(poster_files) if isinstance(poster_files, list) else 0,
+                "size_mb": poster_size_mb,
             },
             "stats": advanced,
         }
@@ -416,12 +462,64 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                     conn.close()
                 return
 
-            # ── Backup Export (JSON or CSV) ────────────────────
+            # ── Person Filmography Lookup ──────────────────────
+            if parsed.path == "/api/person/movies":
+                name = first_param(params, "name", "").strip()
+                if not name:
+                    self.send_json(HTTPStatus.BAD_REQUEST, {"error": "İsim parametresi gereklidir."})
+                    return
+                try:
+                    import tmdb as tmdb_mod
+                    sdata = tmdb_mod._request("/search/person", {"query": name, "language": "tr-TR"})
+                    persons = sdata.get("results", [])
+                    if not persons:
+                        self.send_json(HTTPStatus.OK, {"person": {"name": name}, "movies": []})
+                        return
+
+                    p = persons[0]
+                    pid = p.get("id")
+                    profile_path = p.get("profile_path")
+                    cdata = tmdb_mod._request(f"/person/{pid}/movie_credits", {"language": "tr-TR"})
+                    crew_and_cast = cdata.get("cast", []) + [c for c in cdata.get("crew", []) if c.get("job") == "Director"]
+                    
+                    seen_ids = set()
+                    unique_movies = []
+                    # Sort by vote count / popularity
+                    crew_and_cast.sort(key=lambda m: m.get("vote_count", 0), reverse=True)
+                    for m in crew_and_cast:
+                        mid = m.get("id")
+                        if mid and mid not in seen_ids and m.get("poster_path") and (m.get("title") or m.get("name")):
+                            seen_ids.add(mid)
+                            unique_movies.append(tmdb_mod.search_result_to_summary(m))
+                            if len(unique_movies) >= 6:
+                                break
+
+                    self.send_json(HTTPStatus.OK, {
+                        "person": {
+                            "id": pid,
+                            "name": p.get("name"),
+                            "known_for_department": p.get("known_for_department"),
+                            "profile_url": f"https://image.tmdb.org/t/p/w200{profile_path}" if profile_path else None
+                        },
+                        "movies": unique_movies
+                    })
+                except Exception as e:
+                    LOGGER.warning("Person lookup failed: %s", e)
+                    self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": str(e)})
+                return
+
+            # ── Backup Export (JSON, CSV or Letterboxd) ────────
             if parsed.path == "/api/export":
                 fmt = first_param(params, "format", "json").lower()
                 conn = db_connect(db_path)
                 try:
-                    if fmt == "csv":
+                    if fmt == "letterboxd":
+                        csv_data = cli.export_records_letterboxd_csv(conn).encode("utf-8-sig")
+                        self.send_bytes(
+                            HTTPStatus.OK, csv_data, "text/csv; charset=utf-8",
+                            {"Content-Disposition": 'attachment; filename="letterboxd-import.csv"'}
+                        )
+                    elif fmt == "csv":
                         csv_data = cli.export_records_csv(conn).encode("utf-8-sig")
                         self.send_bytes(
                             HTTPStatus.OK, csv_data, "text/csv; charset=utf-8",
@@ -448,6 +546,35 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                         return
                     trailer_url = get_trailer_url(rec)
                     self.send_json(HTTPStatus.OK, {"title": rec["title"], "trailer_url": trailer_url})
+                except Exception as e:
+                    self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": str(e)})
+                return
+
+            # ── Similar Movies Lookup ──────────────────────────
+            if parsed.path.startswith("/api/records/") and parsed.path.endswith("/similar"):
+                try:
+                    mid_str = parsed.path.removeprefix("/api/records/").removesuffix("/similar")
+                    media_id = int(mid_str)
+                    rec = record_payload(db_path, media_id)
+                    if not rec:
+                        self.send_json(HTTPStatus.NOT_FOUND, {"error": "Kayıt bulunamadı."})
+                        return
+
+                    similar_list = []
+                    # 1. Try TMDB recommendations if tmdb_id exists
+                    if rec.get("tmdb_id"):
+                        try:
+                            import tmdb as tmdb_mod
+                            mtype = "tv" if rec.get("media_type") == "series" else "movie"
+                            data = tmdb_mod._request(f"/{mtype}/{rec['tmdb_id']}/recommendations", {"language": "tr-TR"})
+                            results = data.get("results", [])[:4]
+                            for r in results:
+                                if r.get("poster_path") and (r.get("title") or r.get("name")):
+                                    similar_list.append(tmdb_mod.search_result_to_summary(r))
+                        except Exception as err:
+                            LOGGER.warning("TMDB recommendations failed: %s", err)
+
+                    self.send_json(HTTPStatus.OK, {"results": similar_list})
                 except Exception as e:
                     self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": str(e)})
                 return
@@ -495,18 +622,20 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
         def do_POST(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
 
-            # ── CSV File Import ────────────────────────────────
-            if parsed.path == "/api/import/csv":
-                length = int(self.headers.get("Content-Length", 0))
-                raw = self.rfile.read(length)
-                try:
-                    csv_text = raw.decode("utf-8-sig")
-                except UnicodeDecodeError:
-                    csv_text = raw.decode("latin-1", errors="replace")
+            # ── System Database Optimization (VACUUM) ──────────
+            if parsed.path == "/api/system/optimize":
                 conn = db_connect(db_path)
                 try:
-                    result = cli.import_csv_data(conn, csv_text)
-                    self.send_json(HTTPStatus.OK, result)
+                    conn.execute("VACUUM")
+                    conn.execute("PRAGMA optimize")
+                    new_size = round(db_path.stat().st_size / 1024, 1)
+                    self.send_json(HTTPStatus.OK, {
+                        "status": "success",
+                        "message": f"Veritabanı optimize edildi ve sıkıştırıldı. Yeni boyut: {new_size} KB",
+                        "db_size_kb": new_size,
+                    })
+                except Exception as e:
+                    self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": str(e)})
                 finally:
                     conn.close()
                 return

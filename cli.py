@@ -62,6 +62,9 @@ def _migrate_columns(conn: sqlite3.Connection) -> None:
         ("imdb_rating", "REAL"),
         ("tags", "TEXT"),
         ("trailer_key", "TEXT"),
+        ("watched_at", "TEXT"),
+        ("times_watched", "INTEGER DEFAULT 1"),
+        ("is_favorite", "INTEGER DEFAULT 0"),
     ]
     existing = {row[1] for row in conn.execute("PRAGMA table_info(media)").fetchall()}
     for col_name, col_type in new_columns:
@@ -70,7 +73,7 @@ def _migrate_columns(conn: sqlite3.Connection) -> None:
 
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_media_tmdb_id ON media(tmdb_id) WHERE tmdb_id IS NOT NULL")
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_media_imdb_id ON media(imdb_id) WHERE imdb_id IS NOT NULL")
-    conn.execute("PRAGMA user_version = 4")
+    conn.execute("PRAGMA user_version = 6")
     conn.commit()
 
 
@@ -93,7 +96,17 @@ def ensure_schema(db_path: Path) -> None:
         conn.close()
 
 
-def media_where(kind: str = "all", query: str = "", status: str | None = None, tag: str | None = None) -> tuple[str, list[Any]]:
+def media_where(
+    kind: str = "all",
+    query: str = "",
+    status: str | None = None,
+    tag: str | None = None,
+    min_rating: float | None = None,
+    min_year: int | None = None,
+    max_year: int | None = None,
+    max_runtime: int | None = None,
+    is_favorite: bool | None = None,
+) -> tuple[str, list[Any]]:
     """Construct SQL WHERE clause and parameter list based on filter criteria."""
     clauses: list[str] = []
     values: list[Any] = []
@@ -118,6 +131,25 @@ def media_where(kind: str = "all", query: str = "", status: str | None = None, t
     if tag:
         clauses.append("m.tags LIKE ?")
         values.append(f"%{tag}%")
+
+    if is_favorite:
+        clauses.append("m.is_favorite = 1")
+
+    if min_rating is not None and min_rating > 0:
+        clauses.append("COALESCE(m.rating, m.imdb_rating, m.tmdb_rating) >= ?")
+        values.append(min_rating)
+
+    if min_year is not None and min_year > 0:
+        clauses.append("m.release_year >= ?")
+        values.append(min_year)
+
+    if max_year is not None and max_year > 0:
+        clauses.append("m.release_year <= ?")
+        values.append(max_year)
+
+    if max_runtime is not None and max_runtime > 0:
+        clauses.append("m.runtime <= ?")
+        values.append(max_runtime)
 
     if query:
         clauses.append("(m.title LIKE ? OR m.original_title LIKE ? OR m.note LIKE ? OR CAST(m.release_year AS TEXT) LIKE ? OR m.director LIKE ? OR m.cast_members LIKE ?)")
@@ -155,6 +187,9 @@ def base_record_sql() -> str:
             m.imdb_rating,
             m.tags,
             m.trailer_key,
+            m.watched_at,
+            m.times_watched,
+            m.is_favorite,
             bd.author,
             bd.total_pages,
             bd.read_pages,
@@ -266,6 +301,7 @@ def update_media(conn: sqlite3.Connection, media_id: int, **fields: Any) -> bool
         "title", "media_type", "is_anime", "status", "release_year", "rating", "note",
         "tmdb_id", "imdb_id", "poster_path", "overview", "genres", "original_title",
         "director", "cast_members", "runtime", "tmdb_rating", "imdb_rating", "tags", "trailer_key",
+        "watched_at", "times_watched", "is_favorite",
     }
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
@@ -495,6 +531,51 @@ def get_advanced_stats(conn: sqlite3.Connection) -> dict[str, Any]:
         "rated_total": rated_total,
     }
 
+    # Top Rated Favorites (Rating 8+)
+    top_rated_rows = conn.execute(
+        """
+        SELECT id, title, release_year, rating, imdb_rating, tmdb_rating, poster_path, media_type, is_anime
+        FROM media
+        WHERE (rating >= 8 OR imdb_rating >= 8.5)
+        ORDER BY COALESCE(rating, imdb_rating) DESC
+        LIMIT 6
+        """
+    ).fetchall()
+    top_rated = [dict(r) for r in top_rated_rows]
+
+    diary_rows = conn.execute(
+        """
+        SELECT id, title, release_year, rating, imdb_rating, poster_path, watched_at, times_watched, media_type, is_anime, director
+        FROM media
+        WHERE status = 'completed'
+        ORDER BY COALESCE(watched_at, created_at) DESC
+        LIMIT 10
+        """
+    ).fetchall()
+    diary = [dict(r) for r in diary_rows]
+
+    # 12-Month Watch Activity Matrix
+    month_names = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"]
+    monthly_activity = []
+    for m_idx in range(1, 13):
+        m_str = f"{m_idx:02d}"
+        cnt = conn.execute(
+            """
+            SELECT COUNT(*), SUM(COALESCE(runtime, 0))
+            FROM media
+            WHERE status = 'completed' AND (strftime('%m', watched_at) = ? OR (watched_at IS NULL AND strftime('%m', created_at) = ?))
+            """,
+            (m_str, m_str)
+        ).fetchone()
+        count = cnt[0] or 0
+        minutes = cnt[1] or 0
+        monthly_activity.append({
+            "month_num": m_idx,
+            "month_name": month_names[m_idx - 1],
+            "count": count,
+            "hours": round(minutes / 60, 1),
+        })
+
     return {
         "watch_time": {
             "total_minutes": total_minutes,
@@ -533,6 +614,8 @@ def get_advanced_stats(conn: sqlite3.Connection) -> dict[str, Any]:
         "top_genres": genre_percentages,
         "decades": [{"decade": dec[0], "count": dec[1]} for dec in sorted_decades],
         "top_rated": top_rated,
+        "diary": diary,
+        "monthly_activity": monthly_activity,
         "tags": sorted(tags_set),
     }
 
@@ -572,6 +655,24 @@ def export_records_csv(conn: sqlite3.Connection) -> str:
             int(rec["is_anime"]), rec["status"], rec.get("release_year") or "",
             rec.get("rating") or "", rec.get("imdb_rating") or "", rec.get("tmdb_rating") or "",
             rec.get("director", ""), genres_str, tags_str, rec.get("note", ""), rec.get("created_at", "")
+        ])
+    return output.getvalue()
+
+
+def export_records_letterboxd_csv(conn: sqlite3.Connection) -> str:
+    """Export media records matching Letterboxd's official diary import format."""
+    rows = conn.execute(base_record_sql() + " WHERE m.media_type = 'movie' GROUP BY m.id ORDER BY m.id ASC").fetchall()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Title", "Year", "Rating10", "WatchedDate", "Review"])
+    for r in rows:
+        rec = row_to_record(r)
+        writer.writerow([
+            rec["title"],
+            rec.get("release_year") or "",
+            rec.get("rating") or "",
+            rec.get("watched_at") or (rec.get("created_at", "")[:10] if rec.get("status") == "completed" else ""),
+            rec.get("note") or ""
         ])
     return output.getvalue()
 
