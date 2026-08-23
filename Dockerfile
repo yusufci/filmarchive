@@ -6,7 +6,7 @@ LABEL description="Media Tracker — Letterboxd tarzı kişisel film/dizi/anime 
 WORKDIR /app
 
 # Copy application code
-COPY cli.py gallery.py tmdb.py fetch_posters.py schema.sql ./
+COPY cli.py gallery.py tmdb.py imdb.py fetch_posters.py schema.sql ./
 COPY templates/ ./templates/
 COPY static/ ./static/
 

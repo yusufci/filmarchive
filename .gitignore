@@ -9,11 +9,9 @@ __pycache__/
 *.pyc
 *.pyo
 *.egg-info/
+# Build
 dist/
 build/
-
-# Environment
-.env
 
 # Posters (generated / downloaded)
 static/posters/*.jpg

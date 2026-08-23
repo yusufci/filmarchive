@@ -748,7 +748,6 @@
   const viewGridBtn = $("viewGridBtn");
   const viewTableBtn = $("viewTableBtn");
   const posterGridWrap = $("posterGridWrap");
-  const posterGrid = $("posterGrid");
   const recordsTableWrap = $("recordsTableWrap");
   const recordsTableBody = $("recordsTableBody");
 
@@ -831,6 +830,11 @@
             toast("Hata: " + e.message, "error");
           }
         });
+      } else {
+        upNextSec.classList.add("hidden");
+      }
+    }
+
     // Render Active Filters Bar
     const activeFiltersBar = $("activeFiltersBar");
     const activeFilterTags = $("activeFilterTags");
@@ -912,6 +916,9 @@
                   <button class="table-complete-btn p-1 text-xs bg-zinc-100 dark:bg-zinc-800 hover:bg-emerald-600 hover:text-white transition" title="Durumu Değiştir" data-id="${rec.id}" data-status="${rec.status}">
                     ${rec.status === 'completed' ? '✓' : '👁️'}
                   </button>
+                  <button class="table-delete-btn p-1 text-xs bg-zinc-100 dark:bg-zinc-800 hover:bg-red-600 hover:text-white transition" title="Arşivden Sil" data-id="${rec.id}" data-title="${rec.title}">
+                    🗑️
+                  </button>
                   <button class="table-detail-btn px-2 py-1 text-[11px] font-semibold bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition" onclick="window.__openDetail(${rec.id})">
                     Detay
                   </button>
@@ -934,6 +941,25 @@
               fetchSummary();
             } catch (err) {
               toast("Hata: " + err.message, "error");
+            }
+          });
+        });
+
+        // Table delete button listeners
+        recordsTableBody.querySelectorAll(".table-delete-btn").forEach(btn => {
+          btn.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            const id = parseInt(btn.dataset.id);
+            const title = btn.dataset.title;
+            if (confirm(`"${title}" kaydını silmek istediğinden emin misin?`)) {
+              try {
+                await api("DELETE", `/api/records/${id}`);
+                toast(`"${title}" silindi 🗑️`);
+                fetchRecords();
+                fetchSummary();
+              } catch (err) {
+                toast("Silme hatası: " + err.message, "error");
+              }
             }
           });
         });
@@ -974,6 +1000,9 @@
           </button>
           <button class="quick-complete-btn p-1.5 bg-zinc-900/90 hover:bg-emerald-600 text-white rounded text-xs transition shadow-md" title="${rec.status === 'completed' ? 'Zaten izlendi' : 'İzlendi olarak işaretle'}">
             ${rec.status === 'completed' ? '✓' : '👁️'}
+          </button>
+          <button class="quick-delete-btn p-1.5 bg-zinc-900/90 hover:bg-red-600 text-white rounded text-xs transition shadow-md" title="Arşivden Sil">
+            🗑️
           </button>
           <button class="quick-trailer-btn p-1.5 bg-zinc-900/90 hover:bg-red-600 text-white rounded text-xs transition shadow-md" title="Fragmanı Aç">
             ▶
@@ -1021,6 +1050,9 @@
           </button>
           <button class="quick-complete-btn p-1.5 bg-zinc-900/90 hover:bg-emerald-600 text-white rounded text-xs transition shadow-md" title="${rec.status === 'completed' ? 'Zaten izlendi' : 'İzlendi olarak işaretle'}">
             ${rec.status === 'completed' ? '✓' : '👁️'}
+          </button>
+          <button class="quick-delete-btn p-1.5 bg-zinc-900/90 hover:bg-red-600 text-white rounded text-xs transition shadow-md" title="Arşivden Sil">
+            🗑️
           </button>
           <button class="quick-trailer-btn p-1.5 bg-zinc-900/90 hover:bg-red-600 text-white rounded text-xs transition shadow-md" title="Fragmanı Aç">
             ▶
@@ -1089,6 +1121,21 @@
         fetchSummary();
       } catch (err) {
         toast("Hata: " + err.message, "error");
+      }
+    });
+
+    // Quick Delete Listener
+    card.querySelector(".quick-delete-btn")?.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (confirm(`"${rec.title}" kaydını arşivden silmek istediğinden emin misin?`)) {
+        try {
+          await api("DELETE", `/api/records/${rec.id}`);
+          toast(`"${rec.title}" arşivden silindi 🗑️`);
+          fetchRecords();
+          fetchSummary();
+        } catch (err) {
+          toast("Silme hatası: " + err.message, "error");
+        }
       }
     });
 
@@ -1429,15 +1476,40 @@
         } catch (e) { toast("Güncelleme hatası: " + e.message, "error"); }
       });
 
-      $("modalDeleteBtn")?.addEventListener("click", async () => {
-        if (!confirm(`"${rec.title}" kaydını silmek istediğinden emin misin?`)) return;
+      let deleteArmed = false;
+      const deleteBtn = $("modalDeleteBtn");
+      deleteBtn?.addEventListener("click", async (e) => {
+        e.preventDefault();
+        if (!deleteArmed) {
+          deleteArmed = true;
+          deleteBtn.textContent = "⚠️ Emin misin? (Tıkla ve Sil)";
+          deleteBtn.className = "bg-red-600 text-white px-3 py-1.5 text-xs font-bold uppercase tracking-wider hover:bg-red-700 transition ml-auto animate-pulse";
+          setTimeout(() => {
+            if (deleteArmed && deleteBtn) {
+              deleteArmed = false;
+              deleteBtn.textContent = "Sil";
+              deleteBtn.className = "bg-red-900/60 text-red-200 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider hover:bg-red-800 transition ml-auto";
+            }
+          }, 5000);
+          return;
+        }
+
         try {
+          deleteBtn.disabled = true;
+          deleteBtn.textContent = "Siliniyor…";
           await api("DELETE", `/api/records/${rec.id}`);
-          toast("Kayıt silindi");
+          toast(`"${rec.title}" arşivden başarıyla silindi! 🗑️`);
           hideModal(detailModal);
           fetchRecords();
           fetchSummary();
-        } catch (e) { toast("Silme hatası: " + e.message, "error"); }
+        } catch (e) {
+          toast("Silme hatası: " + e.message, "error");
+          deleteArmed = false;
+          if (deleteBtn) {
+            deleteBtn.disabled = false;
+            deleteBtn.textContent = "Sil";
+          }
+        }
       });
     } catch (err) {
       modalContent.innerHTML = `<div class="p-6 text-center text-red-400">Detay yüklenemedi: ${err.message}</div>`;
@@ -1925,9 +1997,9 @@
   document.querySelectorAll(".quick-filter-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".quick-filter-btn").forEach(b => {
-        b.className = "quick-filter-btn px-2.5 py-1 text-[11px] font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition";
+        b.className = "quick-filter-btn shrink-0 h-7 px-3 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition border border-zinc-200 dark:border-zinc-700/60";
       });
-      btn.className = "quick-filter-btn px-2.5 py-1 text-[11px] font-semibold bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-900 transition";
+      btn.className = "quick-filter-btn shrink-0 h-7 px-3 text-xs font-semibold bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 transition border border-transparent";
 
       const f = btn.dataset.filter;
       state.offset = 0;
@@ -1967,9 +2039,9 @@
   document.querySelectorAll(".decade-filter-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".decade-filter-btn").forEach(b => {
-        b.className = "decade-filter-btn px-2 py-1 text-[10px] font-semibold bg-blue-950/40 text-blue-200 border border-blue-800/60 hover:bg-blue-900/60 transition";
+        b.className = "decade-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition";
       });
-      btn.className = "decade-filter-btn px-2 py-1 text-[10px] font-semibold bg-blue-600 text-white transition";
+      btn.className = "decade-filter-btn shrink-0 h-7 px-2.5 text-xs font-semibold bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border border-transparent transition";
 
       const d = btn.dataset.decade;
       state.offset = 0;
@@ -1995,9 +2067,9 @@
   document.querySelectorAll(".rating-filter-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".rating-filter-btn").forEach(b => {
-        b.className = "rating-filter-btn px-2 py-1 text-[10px] font-semibold bg-amber-950/40 text-amber-200 border border-amber-800/60 hover:bg-amber-900/60 transition";
+        b.className = "rating-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition";
       });
-      btn.className = "rating-filter-btn px-2 py-1 text-[10px] font-semibold bg-amber-500 text-zinc-950 transition";
+      btn.className = "rating-filter-btn shrink-0 h-7 px-2.5 text-xs font-semibold bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border border-transparent transition";
 
       const r = parseInt(btn.dataset.ratingFilter);
       state.offset = 0;

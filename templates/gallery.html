@@ -210,40 +210,46 @@
             </div>
 
             <!-- Quick Filter Chips & Moods -->
-            <div class="mt-3 flex items-center gap-1.5 overflow-x-auto pb-1 thin-scrollbar text-xs">
-              <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 shrink-0 mr-1">Filtrele:</span>
-              <button data-filter="all" class="quick-filter-btn px-2.5 py-1 text-[11px] font-semibold bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-900 transition">Tümü</button>
-              <button data-filter="favorites" class="quick-filter-btn px-2.5 py-1 text-[11px] font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">❤️ Favorilerim</button>
-              <button data-filter="top_rated" class="quick-filter-btn px-2.5 py-1 text-[11px] font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">🔥 ★ 8+ Başyapıtlar</button>
-              <button data-filter="planned" class="quick-filter-btn px-2.5 py-1 text-[11px] font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">⏳ İzlenecekler</button>
-              <button data-filter="completed" class="quick-filter-btn px-2.5 py-1 text-[11px] font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">✓ Tamamlananlar</button>
-              <span class="text-zinc-400 mx-1 text-[10px]">|</span>
-              <span class="text-[10px] font-bold uppercase tracking-wider text-purple-400 shrink-0">🍿 Ruh Hali:</span>
-              <button data-mood="bilim kurgu" class="mood-filter-btn px-2 py-1 text-[10px] font-semibold bg-purple-950/40 text-purple-200 border border-purple-800/60 hover:bg-purple-900/60 transition">🧠 Zihin Açıcı</button>
-              <button data-mood="macera" class="mood-filter-btn px-2 py-1 text-[10px] font-semibold bg-purple-950/40 text-purple-200 border border-purple-800/60 hover:bg-purple-900/60 transition">🚀 Uzay & Keşif</button>
-              <button data-mood="gerilim" class="mood-filter-btn px-2 py-1 text-[10px] font-semibold bg-purple-950/40 text-purple-200 border border-purple-800/60 hover:bg-purple-900/60 transition">🕯️ Gerilim</button>
-              <button data-mood="aksiyon" class="mood-filter-btn px-2 py-1 text-[10px] font-semibold bg-purple-950/40 text-purple-200 border border-purple-800/60 hover:bg-purple-900/60 transition">⚡ Adrenalin</button>
-              <span class="text-zinc-400 mx-1 text-[10px]">|</span>
-              <span class="text-[10px] font-bold uppercase tracking-wider text-blue-400 shrink-0">🎞️ Dönem:</span>
-              <button data-decade="all" class="decade-filter-btn px-2 py-1 text-[10px] font-semibold bg-zinc-800 text-zinc-300 hover:text-white transition">Tümü</button>
-              <button data-decade="2020s" class="decade-filter-btn px-2 py-1 text-[10px] font-semibold bg-blue-950/40 text-blue-200 border border-blue-800/60 hover:bg-blue-900/60 transition">2020'ler</button>
-              <button data-decade="2010s" class="decade-filter-btn px-2 py-1 text-[10px] font-semibold bg-blue-950/40 text-blue-200 border border-blue-800/60 hover:bg-blue-900/60 transition">2010'lar</button>
-              <button data-decade="2000s" class="decade-filter-btn px-2 py-1 text-[10px] font-semibold bg-blue-950/40 text-blue-200 border border-blue-800/60 hover:bg-blue-900/60 transition">2000'ler</button>
-              <button data-decade="1990s" class="decade-filter-btn px-2 py-1 text-[10px] font-semibold bg-blue-950/40 text-blue-200 border border-blue-800/60 hover:bg-blue-900/60 transition">1990'lar</button>
-              <button data-decade="classics" class="decade-filter-btn px-2 py-1 text-[10px] font-semibold bg-blue-950/40 text-blue-200 border border-blue-800/60 hover:bg-blue-900/60 transition">🏛️ Klasikler (&lt;1990)</button>
-              <span class="text-zinc-400 mx-1 text-[10px]">|</span>
-              <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400 shrink-0">⭐ Puan:</span>
-              <button data-rating-filter="10" class="rating-filter-btn px-2 py-1 text-[10px] font-semibold bg-amber-950/40 text-amber-200 border border-amber-800/60 hover:bg-amber-900/60 transition">★ 10/10</button>
-              <button data-rating-filter="9" class="rating-filter-btn px-2 py-1 text-[10px] font-semibold bg-amber-950/40 text-amber-200 border border-amber-800/60 hover:bg-amber-900/60 transition">★ 9+</button>
-              <button data-rating-filter="8" class="rating-filter-btn px-2 py-1 text-[10px] font-semibold bg-amber-950/40 text-amber-200 border border-amber-800/60 hover:bg-amber-900/60 transition">★ 8+</button>
-              <button data-rating-filter="7" class="rating-filter-btn px-2 py-1 text-[10px] font-semibold bg-amber-950/40 text-amber-200 border border-amber-800/60 hover:bg-amber-900/60 transition">★ 7+</button>
+            <div class="mt-3 flex items-center gap-1.5 overflow-x-auto pb-1 thin-scrollbar text-xs whitespace-nowrap">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 shrink-0 mr-1">FİLTRE:</span>
+              <button data-filter="all" class="quick-filter-btn shrink-0 h-7 px-3 text-xs font-semibold bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 transition border border-transparent">Tümü</button>
+              <button data-filter="favorites" class="quick-filter-btn shrink-0 h-7 px-3 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition border border-zinc-200 dark:border-zinc-700/60">❤️ Favoriler</button>
+              <button data-filter="top_rated" class="quick-filter-btn shrink-0 h-7 px-3 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition border border-zinc-200 dark:border-zinc-700/60">★ 8+ Başyapıt</button>
+              <button data-filter="planned" class="quick-filter-btn shrink-0 h-7 px-3 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition border border-zinc-200 dark:border-zinc-700/60">⏳ İzlenecekler</button>
+              <button data-filter="completed" class="quick-filter-btn shrink-0 h-7 px-3 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition border border-zinc-200 dark:border-zinc-700/60">✓ İzlenenler</button>
+              
+              <span class="text-zinc-400 dark:text-zinc-600 mx-1 shrink-0">|</span>
+              
+              <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 shrink-0">RUH HALİ:</span>
+              <button data-mood="bilim kurgu" class="mood-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">🧠 Zihin Açıcı</button>
+              <button data-mood="macera" class="mood-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">🚀 Uzay &amp; Keşif</button>
+              <button data-mood="gerilim" class="mood-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">🕯️ Gerilim</button>
+              <button data-mood="aksiyon" class="mood-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">⚡ Adrenalin</button>
+              
+              <span class="text-zinc-400 dark:text-zinc-600 mx-1 shrink-0">|</span>
+              
+              <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 shrink-0">DÖNEM:</span>
+              <button data-decade="all" class="decade-filter-btn shrink-0 h-7 px-2.5 text-xs font-semibold bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border border-transparent transition">Tümü</button>
+              <button data-decade="2020s" class="decade-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">2020'ler</button>
+              <button data-decade="2010s" class="decade-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">2010'lar</button>
+              <button data-decade="2000s" class="decade-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">2000'ler</button>
+              <button data-decade="1990s" class="decade-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">1990'lar</button>
+              <button data-decade="classics" class="decade-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">🏛️ Klasikler</button>
+              
+              <span class="text-zinc-400 dark:text-zinc-600 mx-1 shrink-0">|</span>
+              
+              <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 shrink-0">PUAN:</span>
+              <button data-rating-filter="10" class="rating-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">★ 10</button>
+              <button data-rating-filter="9" class="rating-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">★ 9+</button>
+              <button data-rating-filter="8" class="rating-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">★ 8+</button>
+              <button data-rating-filter="7" class="rating-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">★ 7+</button>
             </div>
 
             <!-- Active Filter Badges Bar -->
             <div id="activeFiltersBar" class="mt-2.5 pt-2 border-t border-zinc-200 dark:border-zinc-800/60 flex items-center gap-1.5 flex-wrap hidden text-xs">
-              <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Aktif Filtreler:</span>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Aktif Filtreler:</span>
               <div id="activeFilterTags" class="flex items-center gap-1 flex-wrap"></div>
-              <button id="clearAllFiltersBtn" class="text-[10px] font-bold text-red-400 hover:text-red-300 ml-auto transition">✕ Tümünü Sıfırla</button>
+              <button id="clearAllFiltersBtn" class="text-[10px] font-bold text-red-500 hover:text-red-400 ml-auto transition">✕ Tümünü Sıfırla</button>
             </div>
 
             <div class="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-2 border-t border-zinc-100 dark:border-zinc-800/60">
@@ -271,12 +277,12 @@
           </div>
 
           <!-- Up Next Hero Banner (Watchlist Highlight) -->
-          <div id="upNextSection" class="p-4 border-b border-zinc-200 dark:border-zinc-800 bg-gradient-to-r from-purple-950/40 via-zinc-900 to-zinc-900 text-white hidden">
+          <div id="upNextSection" class="p-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/90 text-zinc-900 dark:text-white hidden">
             <div class="flex items-center justify-between mb-2">
-              <span class="text-[10px] font-bold uppercase tracking-widest text-purple-400 flex items-center gap-1">
+              <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                 <span>📌</span> SIRADAKİ İZLENECEK YAPIM
               </span>
-              <span class="text-[10px] text-zinc-400">İzleme Listenin Zirvesi</span>
+              <span class="text-[10px] text-zinc-500 dark:text-zinc-400">İzleme Listenin Zirvesi</span>
             </div>
             <div id="upNextCard" class="flex gap-4 items-center">
               <!-- Dynamic Up Next Card -->
@@ -340,6 +346,7 @@
               <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest bg-purple-700 text-white">Analitik Raporu</span>
               <h2 class="text-xl font-bold text-zinc-900 dark:text-white">İzleme Analitiği & İstatistikleri</h2>
             </div>
+          </div>
           <div class="flex items-center gap-2">
             <button id="copyReportBtn" class="border border-purple-700 bg-purple-700 hover:bg-purple-600 px-3.5 py-2 text-xs font-semibold uppercase tracking-wider text-white transition active:translate-y-px" title="İzleme raporunu panoya kopyala">
               📋 Raporu Kopyala
