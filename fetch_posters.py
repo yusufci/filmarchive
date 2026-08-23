@@ -12,6 +12,10 @@ import sys
 import time
 from pathlib import Path
 
+# Ensure UTF-8 output on Windows consoles
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 import cli
 import tmdb
 
@@ -32,12 +36,12 @@ def match_and_update(conn, record: dict, dry_run: bool = False) -> str | None:
         else:
             results = tmdb.search_tv(title, year=year)
     except Exception as e:
-        print(f"  ✗ Arama hatası: {e}")
+        print(f"  [!] Arama hatasi: {e}")
         return None
 
     items = results.get("results", [])
     if not items:
-        print(f"  ✗ TMDB'de bulunamadı: {title}")
+        print(f"  [-] TMDB'de bulunamadi: {title}")
         return None
 
     best = items[0]
@@ -45,7 +49,7 @@ def match_and_update(conn, record: dict, dry_run: bool = False) -> str | None:
     poster_path = best.get("poster_path")
     tmdb_title = best.get("title") or best.get("name") or "?"
 
-    print(f"  → Eşleşme: {tmdb_title} (TMDB #{tmdb_id})")
+    print(f"  -> Eslesme: {tmdb_title} (TMDB #{tmdb_id})")
 
     if not dry_run and tmdb_id:
         conn.execute(
@@ -135,17 +139,17 @@ def main() -> int:
             downloaded += 1
             continue
 
-        print(f"{progress} İndiriliyor: {title}...", end=" ", flush=True)
+        print(f"{progress} Indiriliyor: {title}...", end=" ", flush=True)
         if tmdb.download_poster(record["poster_path"], dest, overwrite=args.force):
-            print("✓")
+            print("[OK]")
             downloaded += 1
         else:
-            print("✗")
+            print("[FAIL]")
 
     conn.close()
 
-    print(f"\n{'─' * 40}")
-    print(f"Toplam: {total} | İndirilen: {downloaded} | Eşleşen: {matched} | Atlanan: {skipped}")
+    print(f"\n{'-' * 40}")
+    print(f"Toplam: {total} | Indirilen: {downloaded} | Eslesen: {matched} | Atlanan: {skipped}")
 
     if args.dry_run:
         print("(Dry-run modu — hiçbir dosya indirilmedi.)")

@@ -62,15 +62,24 @@ def get_api_key() -> str:
 def _request(path: str, params: dict[str, str] | None = None) -> dict[str, Any]:
     """Make a GET request to the TMDB API and return parsed JSON."""
     api_key = get_api_key()
-    query_params = {"api_key": api_key}
-    if params:
-        query_params.update(params)
-    url = f"{BASE_URL}{path}?{urllib.parse.urlencode(query_params)}"
-
-    req = urllib.request.Request(url, headers={
+    headers = {
         "Accept": "application/json",
         "User-Agent": "MediaTracker/1.0",
-    })
+    }
+    query_params = {}
+    if params:
+        query_params.update(params)
+
+    # Check if key is a JWT (Bearer Token / API Read Access Token) or standard v3 key (32 hex chars)
+    if len(api_key) > 50 or api_key.startswith("eyJ"):
+        headers["Authorization"] = f"Bearer {api_key}"
+    else:
+        query_params["api_key"] = api_key
+
+    query_str = f"?{urllib.parse.urlencode(query_params)}" if query_params else ""
+    url = f"{BASE_URL}{path}{query_str}"
+
+    req = urllib.request.Request(url, headers=headers)
 
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
@@ -144,6 +153,21 @@ def get_tv_season(
 ) -> dict[str, Any]:
     """Fetch season details for a TV series."""
     return _request(f"/tv/{tmdb_id}/season/{season_number}", {"language": language})
+
+
+def find_by_imdb(imdb_id: str, language: str = DEFAULT_LANGUAGE) -> dict[str, Any] | None:
+    """Find a movie or TV show by its IMDb ID and return localized details."""
+    try:
+        data = _request(f"/find/{imdb_id}", {"external_source": "imdb_id", "language": language})
+        movies = data.get("movie_results", [])
+        if movies:
+            return movies[0]
+        tvs = data.get("tv_results", [])
+        if tvs:
+            return tvs[0]
+    except Exception as e:
+        LOGGER.warning("TMDB find_by_imdb failed for %s: %s", imdb_id, e)
+    return None
 
 
 # ── Poster Download ─────────────────────────────────────────────────

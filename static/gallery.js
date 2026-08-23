@@ -1,6 +1,6 @@
 /**
- * Media Tracker Gallery Client JavaScript v2.0
- * TMDB search, CRUD operations, toast notifications, enhanced detail modal.
+ * Media Tracker Gallery Client JavaScript v4.0
+ * Dual Search (IMDb + TMDB) in Turkish, CRUD, Toast, Modals.
  */
 (() => {
   "use strict";
@@ -15,7 +15,6 @@
     offset: 0,
     total: 0,
     summary: null,
-    tmdbConfigured: false,
   };
 
   const KIND_LABELS = {
@@ -44,7 +43,6 @@
     dropped: "bg-red-600 text-red-50",
   };
 
-  // DOM refs
   const $ = (id) => document.getElementById(id);
   const dbLine = $("dbLine");
   const refreshButton = $("refreshButton");
@@ -127,7 +125,6 @@
     try {
       const data = await api("GET", "/api/summary");
       state.summary = data;
-      state.tmdbConfigured = data.tmdb_configured || false;
       renderSummary(data);
     } catch (err) {
       console.error("Summary fetch error:", err);
@@ -137,7 +134,7 @@
   function renderSummary(data) {
     if (dbLine) {
       const posters = data.posters?.total_files || 0;
-      dbLine.textContent = `Şema v${data.schema_version || 3} — ${posters} poster yüklü${data.tmdb_configured ? " — TMDB ✓" : ""}`;
+      dbLine.textContent = `SQLite — ${posters} poster yüklü — IMDb & TMDB Türkçe Aktif ✓`;
     }
     if (statTotal) statTotal.textContent = (data.counts?.all || 0).toLocaleString("tr-TR");
     if (statRating) statRating.textContent = data.avg_rating ? Number(data.avg_rating).toFixed(1) : "-";
@@ -237,7 +234,7 @@
     const kindBadge = rec.is_anime ? (rec.media_type === "movie" ? "Anime Film" : "Anime Dizi") : (rec.media_type === "movie" ? "Film" : "Dizi");
     const statusBadge = STATUS_LABELS[rec.status] || rec.status;
     const statusColor = STATUS_COLORS[rec.status] || "bg-zinc-700 text-white";
-    const posterSrc = rec.poster_url || (rec.poster_path ? `https://image.tmdb.org/t/p/w500${rec.poster_path}` : null);
+    const posterSrc = rec.poster_url;
 
     if (posterSrc) {
       card.innerHTML = `
@@ -247,7 +244,7 @@
           <h3 class="text-sm font-bold leading-tight line-clamp-2">${rec.title}</h3>
           <div class="mt-1 flex items-center justify-between text-xs text-zinc-300">
             <span>${rec.release_year || "—"}</span>
-            <span class="mono font-semibold text-amber-400">★ ${rec.rating ? rec.rating + "/10" : "—"}</span>
+            <span class="mono font-semibold text-amber-400">★ ${rec.rating ? rec.rating + "/10" : (rec.imdb_rating ? "IMDb " + rec.imdb_rating : (rec.tmdb_rating ? "TMDB " + Number(rec.tmdb_rating).toFixed(1) : "—"))}</span>
           </div>
         </div>`;
     } else {
@@ -256,7 +253,7 @@
         <div class="w-full h-full p-4 flex flex-col justify-between bg-gradient-to-b from-zinc-900 via-zinc-900 to-zinc-950 text-white select-none">
           <div class="flex items-start justify-between gap-1">
             <span class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-zinc-800 text-zinc-300">${kindBadge}</span>
-            <span class="mono text-xs font-bold text-amber-400">★ ${rec.rating || "—"}</span>
+            <span class="mono text-xs font-bold text-amber-400">★ ${rec.rating || (rec.imdb_rating ? "IMDb " + rec.imdb_rating : "—")}</span>
           </div>
           <div class="my-auto text-center py-2">
             <div class="mono text-2xl font-bold tracking-widest text-zinc-600 mb-1">${initials}</div>
@@ -270,7 +267,7 @@
         <div class="poster-overlay">
           <span class="inline-block self-start text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 mb-1 ${statusColor}">${statusBadge}</span>
           <h3 class="text-sm font-bold leading-tight line-clamp-2">${rec.title}</h3>
-          <p class="text-xs text-zinc-300 mt-1 line-clamp-3">${rec.note || ""}</p>
+          <p class="text-xs text-zinc-300 mt-1 line-clamp-3">${rec.overview || rec.note || ""}</p>
           <div class="mt-2 flex items-center justify-between text-xs text-zinc-400">
             <span>${rec.release_year || "—"}</span>
             <span class="mono font-semibold text-amber-400">★ ${rec.rating ? rec.rating + "/10" : "—"}</span>
@@ -292,7 +289,7 @@
       const typeName = rec.is_anime ? (rec.media_type === "movie" ? "Anime Film" : "Anime Dizi") : (rec.media_type === "movie" ? "Film" : "Dizi");
       const statusBadge = STATUS_LABELS[rec.status] || rec.status;
       const statusColor = STATUS_COLORS[rec.status] || "bg-zinc-700 text-white";
-      const posterSrc = rec.poster_url || (rec.poster_path ? `https://image.tmdb.org/t/p/w500${rec.poster_path}` : null);
+      const posterSrc = rec.poster_url;
       const genres = Array.isArray(rec.genres) ? rec.genres : [];
 
       let seasonsHtml = "";
@@ -300,7 +297,7 @@
         seasonsHtml = `<div class="mt-4 pt-4 border-t border-zinc-800">
           <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">Sezon Takibi</h4>
           <div class="grid gap-1.5">${rec.seasons.map(s =>
-            `<div class="flex items-center justify-between text-xs bg-zinc-800/60 px-3 py-2"><span>${s.season_number}. Sezon</span><span class="mono text-zinc-300">${s.watched_episodes}/${s.episode_count || "?"}</span></div>`
+            `<div class="flex items-center justify-between text-xs bg-zinc-800/60 px-3 py-2"><span>${s.season_number}. Sezon</span><span class="mono text-zinc-300">${s.watched_episodes}/${s.episode_count || "?"} bölüm</span></div>`
           ).join("")}</div></div>`;
       }
 
@@ -315,15 +312,19 @@
             </div>
             <h2 class="text-xl font-bold text-white">${rec.title}</h2>
             ${rec.original_title && rec.original_title !== rec.title ? `<p class="text-xs text-zinc-500 mt-0.5">${rec.original_title}</p>` : ""}
-            <div class="mt-3 flex items-center gap-4 text-xs text-zinc-400">
+            <div class="mt-3 flex items-center gap-3 text-xs text-zinc-400 flex-wrap">
               <span class="mono text-lg font-bold text-amber-400">★ ${rec.rating || "-"}<span class="text-zinc-600 text-xs"> / 10</span></span>
-              ${rec.tmdb_rating ? `<span class="text-zinc-500">TMDB: ${Number(rec.tmdb_rating).toFixed(1)}</span>` : ""}
+              ${rec.imdb_rating ? `<span class="bg-amber-400 text-zinc-950 px-1.5 py-0.5 text-[10px] font-bold">IMDb ${Number(rec.imdb_rating).toFixed(1)}</span>` : ""}
+              ${rec.tmdb_rating ? `<span class="bg-zinc-800 text-zinc-300 px-1.5 py-0.5 text-[10px] font-bold">TMDB ${Number(rec.tmdb_rating).toFixed(1)}</span>` : ""}
+              ${rec.imdb_id ? `<a href="https://www.imdb.com/title/${rec.imdb_id}/" target="_blank" class="text-amber-400 hover:underline text-[11px]">IMDb ↗</a>` : ""}
               <span>${rec.release_year || "—"}</span>
               ${rec.runtime ? `<span>${rec.runtime} dk</span>` : ""}
             </div>
+            ${rec.director ? `<div class="mt-2 text-xs text-zinc-400"><span class="text-zinc-500 font-medium">Yönetmen:</span> ${rec.director}</div>` : ""}
+            ${rec.cast_members ? `<div class="mt-1 text-xs text-zinc-400"><span class="text-zinc-500 font-medium">Oyuncular:</span> ${rec.cast_members}</div>` : ""}
           </div>
         </div>
-        ${rec.overview ? `<div class="mt-4"><p class="text-sm text-zinc-300 leading-relaxed bg-zinc-800/30 p-3">${rec.overview}</p></div>` : ""}
+        ${rec.overview ? `<div class="mt-4"><h4 class="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1">Özet</h4><p class="text-sm text-zinc-300 leading-relaxed bg-zinc-800/30 p-3">${rec.overview}</p></div>` : ""}
         ${rec.note ? `<div class="mt-3"><h4 class="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1">Kişisel Not</h4><p class="text-sm text-zinc-300 bg-zinc-800/30 p-3">${rec.note}</p></div>` : ""}
         ${seasonsHtml}
         <div class="mt-5 pt-4 border-t border-zinc-800 flex flex-wrap items-center gap-2">
@@ -342,7 +343,6 @@
           <span>Güncelleme: ${rec.updated_at || "—"}</span>
         </div>`;
 
-      // Save handler
       $("modalSaveBtn")?.addEventListener("click", async () => {
         const newStatus = $("modalStatusSelect")?.value;
         const ratingVal = $("modalRatingSelect")?.value;
@@ -355,7 +355,6 @@
         } catch (e) { toast("Güncelleme hatası: " + e.message, "error"); }
       });
 
-      // Delete handler
       $("modalDeleteBtn")?.addEventListener("click", async () => {
         if (!confirm(`"${rec.title}" kaydını silmek istediğinden emin misin?`)) return;
         try {
@@ -371,7 +370,7 @@
     }
   }
 
-  // ── Add Modal (TMDB Search + Manual) ───────────────────
+  // ── Add Modal (IMDb + TMDB + Manual) ───────────────────
   function openAddModal() {
     if (!addModal || !addModalContent) return;
     addModalContent.innerHTML = `
@@ -379,13 +378,20 @@
         <h2 class="text-lg font-bold text-white">Film / Dizi Ekle</h2>
         <button id="closeAddModal" class="text-zinc-400 hover:text-white text-xl font-bold p-1">&times;</button>
       </div>
-      <div class="flex gap-2 mb-4">
-        <button id="tabTmdb" class="flex-1 py-2 text-xs font-semibold uppercase tracking-wider bg-zinc-100 text-zinc-900 transition">TMDB'den Ara</button>
-        <button id="tabManual" class="flex-1 py-2 text-xs font-semibold uppercase tracking-wider bg-zinc-800 text-zinc-400 transition">Manuel Ekle</button>
+      <div class="flex gap-1.5 mb-4">
+        <button id="tabImdb" class="flex-1 py-2 text-xs font-semibold uppercase tracking-wider bg-zinc-100 text-zinc-900 transition">IMDb ile Ara</button>
+        <button id="tabTmdb" class="flex-1 py-2 text-xs font-semibold uppercase tracking-wider bg-zinc-800 text-zinc-400 transition">TMDB ile Ara</button>
+        <button id="tabManual" class="flex-1 py-2 text-xs font-semibold uppercase tracking-wider bg-zinc-800 text-zinc-400 transition">Manuel</button>
       </div>
-      <div id="tmdbPanel">
+      <div id="imdbPanel">
+        <div class="mb-3">
+          <input id="imdbSearchInput" type="text" placeholder="IMDb'de film veya dizi ara (örn: The Dark Knight, Fight Club)..." class="w-full bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white placeholder:text-zinc-500 outline-none focus:border-zinc-500" autofocus />
+        </div>
+        <div id="imdbResults" class="max-h-80 overflow-y-auto thin-scrollbar space-y-2"></div>
+      </div>
+      <div id="tmdbPanel" class="hidden">
         <div class="flex gap-2 mb-3">
-          <input id="tmdbSearchInput" type="text" placeholder="Film veya dizi adı yazın..." class="flex-1 bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white placeholder:text-zinc-500 outline-none focus:border-zinc-500" />
+          <input id="tmdbSearchInput" type="text" placeholder="TMDB'de Türkçe ara (örn: Yüzüklerin Efendisi, Başlangıç)..." class="flex-1 bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white placeholder:text-zinc-500 outline-none focus:border-zinc-500" />
           <select id="tmdbTypeSelect" class="bg-zinc-800 border border-zinc-700 px-2 py-2 text-xs text-zinc-300">
             <option value="multi">Tümü</option>
             <option value="movie">Film</option>
@@ -416,44 +422,110 @@
           <select id="manualStatus" class="bg-zinc-800 border border-zinc-700 px-3 py-2 text-xs text-zinc-300">
             ${Object.entries(STATUS_LABELS).filter(([k]) => k).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}
           </select>
-          <textarea id="manualNote" placeholder="Not (isteğe bağlı)" rows="2" class="bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white placeholder:text-zinc-500 outline-none resize-none"></textarea>
+          <textarea id="manualNote" placeholder="Özet / Kişisel Not (isteğe bağlı)" rows="2" class="bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white placeholder:text-zinc-500 outline-none resize-none"></textarea>
           <button id="manualSubmit" class="bg-zinc-100 text-zinc-900 px-4 py-2 text-xs font-semibold uppercase tracking-wider hover:bg-white transition">Kaydet</button>
         </div>
       </div>`;
 
     showModal(addModal);
 
-    // Tab switching
-    $("tabTmdb")?.addEventListener("click", () => {
-      $("tmdbPanel").classList.remove("hidden");
-      $("manualPanel").classList.add("hidden");
-      $("tabTmdb").className = $("tabTmdb").className.replace("bg-zinc-800 text-zinc-400", "bg-zinc-100 text-zinc-900");
-      $("tabManual").className = $("tabManual").className.replace("bg-zinc-100 text-zinc-900", "bg-zinc-800 text-zinc-400");
-    });
-    $("tabManual")?.addEventListener("click", () => {
-      $("tmdbPanel").classList.add("hidden");
-      $("manualPanel").classList.remove("hidden");
-      $("tabManual").className = $("tabManual").className.replace("bg-zinc-800 text-zinc-400", "bg-zinc-100 text-zinc-900");
-      $("tabTmdb").className = $("tabTmdb").className.replace("bg-zinc-100 text-zinc-900", "bg-zinc-800 text-zinc-400");
-    });
+    const activateTab = (activeName) => {
+      $("imdbPanel").classList.toggle("hidden", activeName !== "imdb");
+      $("tmdbPanel").classList.toggle("hidden", activeName !== "tmdb");
+      $("manualPanel").classList.toggle("hidden", activeName !== "manual");
+      $("tabImdb").className = `flex-1 py-2 text-xs font-semibold uppercase tracking-wider transition ${activeName === "imdb" ? "bg-zinc-100 text-zinc-900" : "bg-zinc-800 text-zinc-400"}`;
+      $("tabTmdb").className = `flex-1 py-2 text-xs font-semibold uppercase tracking-wider transition ${activeName === "tmdb" ? "bg-zinc-100 text-zinc-900" : "bg-zinc-800 text-zinc-400"}`;
+      $("tabManual").className = `flex-1 py-2 text-xs font-semibold uppercase tracking-wider transition ${activeName === "manual" ? "bg-zinc-100 text-zinc-900" : "bg-zinc-800 text-zinc-400"}`;
+    };
+
+    $("tabImdb")?.addEventListener("click", () => activateTab("imdb"));
+    $("tabTmdb")?.addEventListener("click", () => activateTab("tmdb"));
+    $("tabManual")?.addEventListener("click", () => activateTab("manual"));
 
     $("closeAddModal")?.addEventListener("click", () => hideModal(addModal));
+
+    // IMDb search
+    let imdbTimeout = null;
+    $("imdbSearchInput")?.addEventListener("input", (e) => {
+      clearTimeout(imdbTimeout);
+      imdbTimeout = setTimeout(() => searchImdb(e.target.value.trim()), 300);
+    });
 
     // TMDB search
     let tmdbTimeout = null;
     $("tmdbSearchInput")?.addEventListener("input", (e) => {
       clearTimeout(tmdbTimeout);
-      tmdbTimeout = setTimeout(() => searchTmdb(e.target.value.trim()), 400);
+      tmdbTimeout = setTimeout(() => searchTmdb(e.target.value.trim()), 300);
     });
 
-    // Manual submit
     $("manualSubmit")?.addEventListener("click", submitManual);
+  }
+
+  async function searchImdb(query) {
+    const resultsEl = $("imdbResults");
+    if (!resultsEl || !query) { if (resultsEl) resultsEl.innerHTML = ""; return; }
+    resultsEl.innerHTML = `<div class="text-center text-zinc-500 text-sm py-4 animate-pulse">IMDb'de aranıyor…</div>`;
+    try {
+      const data = await api("POST", "/api/imdb/search", { query });
+      if (!data.results?.length) {
+        resultsEl.innerHTML = `<div class="text-center text-zinc-500 text-sm py-4">Sonuç bulunamadı.</div>`;
+        return;
+      }
+      resultsEl.innerHTML = data.results.map((r) => {
+        const typeLabel = r.media_type === "series" ? "Dizi" : "Film";
+        return `
+          <div class="imdb-result flex gap-3 p-3 bg-zinc-800/60 hover:bg-zinc-800 transition border border-zinc-700/50" data-imdb-id="${r.imdb_id}" data-media-type="${r.media_type}" data-poster-url="${r.poster_url || ""}">
+            ${r.poster_url ? `<img src="${r.poster_url}" alt="" class="w-12 h-18 object-cover shrink-0" loading="lazy" />` : `<div class="w-12 h-18 bg-zinc-700 shrink-0"></div>`}
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-1.5">
+                <span class="text-[9px] font-bold uppercase px-1.5 py-0.5 bg-zinc-700 text-zinc-300">${typeLabel}</span>
+                <span class="text-[10px] text-zinc-400">${r.release_year || "—"}</span>
+              </div>
+              <h4 class="text-sm font-semibold text-white mt-1 truncate">${r.title}</h4>
+              ${r.stars ? `<p class="text-[11px] text-zinc-400 mt-0.5 truncate">${r.stars}</p>` : ""}
+            </div>
+            <div class="flex flex-col gap-1.5 shrink-0 justify-center">
+              <button class="import-imdb-btn bg-zinc-100 text-zinc-900 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider hover:bg-white transition" data-anime="false">+ Ekle</button>
+              <button class="import-imdb-btn bg-zinc-700 text-zinc-200 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider hover:bg-zinc-600 transition" data-anime="true">+ Anime</button>
+            </div>
+          </div>`;
+      }).join("");
+
+      resultsEl.querySelectorAll(".import-imdb-btn").forEach((btn) => {
+        btn.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          const row = btn.closest(".imdb-result");
+          const imdbId = row.dataset.imdbId;
+          const mediaType = row.dataset.mediaType;
+          const posterUrl = row.dataset.posterUrl;
+          const isAnime = btn.dataset.anime === "true";
+          btn.textContent = "...";
+          btn.disabled = true;
+          try {
+            const result = await api("POST", `/api/imdb/import/${imdbId}`, { media_type: mediaType, is_anime: isAnime, poster_url: posterUrl });
+            if (result.already_exists) {
+              toast("Bu kayıt zaten mevcut", "info");
+            } else {
+              toast(`"${result.title || "Kayıt"}" Türkçe özetle eklendi!`);
+            }
+            hideModal(addModal);
+            fetchRecords();
+            fetchSummary();
+          } catch (err) {
+            toast("Import hatası: " + err.message, "error");
+            btn.textContent = "Hata";
+          }
+        });
+      });
+    } catch (err) {
+      resultsEl.innerHTML = `<div class="text-center text-red-400 text-sm py-4">${err.message}</div>`;
+    }
   }
 
   async function searchTmdb(query) {
     const resultsEl = $("tmdbResults");
     if (!resultsEl || !query) { if (resultsEl) resultsEl.innerHTML = ""; return; }
-    resultsEl.innerHTML = `<div class="text-center text-zinc-500 text-sm py-4 animate-pulse">Aranıyor…</div>`;
+    resultsEl.innerHTML = `<div class="text-center text-zinc-500 text-sm py-4 animate-pulse">TMDB'de aranıyor…</div>`;
     try {
       const mediaType = $("tmdbTypeSelect")?.value || "multi";
       const data = await api("POST", "/api/tmdb/search", { query, media_type: mediaType });
@@ -464,7 +536,7 @@
       resultsEl.innerHTML = data.results.map((r) => {
         const typeLabel = r.media_type === "movie" ? "Film" : "Dizi";
         return `
-          <div class="tmdb-result flex gap-3 p-3 bg-zinc-800/60 hover:bg-zinc-800 transition cursor-pointer border border-zinc-700/50" data-tmdb-id="${r.tmdb_id}" data-media-type="${r.media_type}">
+          <div class="tmdb-result flex gap-3 p-3 bg-zinc-800/60 hover:bg-zinc-800 transition border border-zinc-700/50" data-tmdb-id="${r.tmdb_id}" data-media-type="${r.media_type}">
             ${r.poster_preview ? `<img src="${r.poster_preview}" alt="" class="w-12 h-18 object-cover shrink-0" loading="lazy" />` : `<div class="w-12 h-18 bg-zinc-700 shrink-0"></div>`}
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-1.5">
@@ -473,16 +545,16 @@
               </div>
               <h4 class="text-sm font-semibold text-white mt-1 truncate">${r.title}</h4>
               ${r.original_title && r.original_title !== r.title ? `<p class="text-[10px] text-zinc-500 truncate">${r.original_title}</p>` : ""}
-              <p class="text-[11px] text-zinc-400 mt-0.5">${r.release_year || "?"}</p>
+              <p class="text-[11px] text-zinc-400 mt-0.5">${r.release_year || "—"}</p>
             </div>
-            <div class="flex flex-col gap-1 shrink-0">
-              <button class="import-btn bg-zinc-100 text-zinc-900 px-3 py-1 text-[10px] font-bold uppercase tracking-wider hover:bg-white transition" data-anime="false">Ekle</button>
-              <button class="import-btn bg-zinc-700 text-zinc-200 px-3 py-1 text-[10px] font-bold uppercase tracking-wider hover:bg-zinc-600 transition" data-anime="true">Anime</button>
+            <div class="flex flex-col gap-1.5 shrink-0 justify-center">
+              <button class="import-tmdb-btn bg-zinc-100 text-zinc-900 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider hover:bg-white transition" data-anime="false">+ Ekle</button>
+              <button class="import-tmdb-btn bg-zinc-700 text-zinc-200 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider hover:bg-zinc-600 transition" data-anime="true">+ Anime</button>
             </div>
           </div>`;
       }).join("");
 
-      resultsEl.querySelectorAll(".import-btn").forEach((btn) => {
+      resultsEl.querySelectorAll(".import-tmdb-btn").forEach((btn) => {
         btn.addEventListener("click", async (e) => {
           e.stopPropagation();
           const row = btn.closest(".tmdb-result");
@@ -566,7 +638,6 @@
   prevButton?.addEventListener("click", () => { if (state.offset > 0) { state.offset = Math.max(0, state.offset - state.limit); fetchRecords(); } });
   nextButton?.addEventListener("click", () => { if (state.offset + state.limit < state.total) { state.offset += state.limit; fetchRecords(); } });
 
-  // Close modals on backdrop click or Escape
   [detailModal, addModal].forEach((m) => {
     if (!m) return;
     m.addEventListener("click", (e) => { if (e.target === m) hideModal(m); });

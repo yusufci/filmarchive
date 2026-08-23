@@ -17,6 +17,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 import cli
+import imdb
 
 ROOT = Path(__file__).resolve().parent
 TEMPLATE_PATH = ROOT / "templates" / "gallery.html" if (ROOT / "templates" / "gallery.html").is_file() else ROOT / "gallery.html"
@@ -32,7 +33,6 @@ SERVER_VERSION = "MediaTrackerGallery/2.0"
 INTERNAL_ERROR_MESSAGE = "İstek işlenirken bir hata oluştu."
 LOGGER = logging.getLogger("media_tracker.gallery")
 
-# Gallery only displays visual media — books are excluded.
 GALLERY_FILTERS = ("all", "movie", "anime-movie", "series", "anime-series", "anime")
 GALLERY_KINDS_SQL_EXCLUDE_BOOK = "m.media_type != 'book'"
 
@@ -94,7 +94,7 @@ def db_connect(db_path: Path) -> sqlite3.Connection:
 
 
 def slugify(title: str) -> str:
-    """Generate a filesystem-safe slug for titles, matching fetch_posters.py logic."""
+    """Generate a filesystem-safe slug for titles."""
     s = re.sub(r'[\\/:*?"<>|]', "", title)
     s = re.sub(r"\s+", " ", s).strip()
     if len(s) > 120:
@@ -106,12 +106,10 @@ def poster_url_for(record: dict[str, Any]) -> str | None:
     """Return the poster URL by ID if available, fall back to slug lookup, or None."""
     media_id = record.get("id")
     title = record.get("title") or ""
-    # 1) ID-based file lookup
     if media_id is not None:
         by_id = POSTERS_DIR / f"{media_id}.jpg"
         if by_id.is_file():
             return f"/static/posters/{media_id}.jpg"
-    # 2) Slug-based fallback lookup
     slug = slugify(str(title))
     by_slug = POSTERS_DIR / f"{slug}.jpg"
     if by_slug.is_file():
@@ -217,26 +215,12 @@ def summary_payload(db_path: Path) -> dict[str, Any]:
             "SELECT rating, COUNT(*) FROM media WHERE rating IS NOT NULL AND media_type != 'book' GROUP BY rating"
         ):
             buckets[int(rating)] = int(count)
-        total_pages = int(scalar(conn, "SELECT SUM(total_pages) FROM book_details"))
-        read_pages = int(scalar(conn, "SELECT SUM(read_pages) FROM book_details"))
-        watched_episodes = int(scalar(conn, "SELECT SUM(watched_episodes) FROM series_seasons"))
-        known_total_episodes = int(scalar(conn, "SELECT SUM(episode_count) FROM series_seasons"))
-        unknown_seasons = int(scalar(conn, "SELECT COUNT(*) FROM series_seasons WHERE episode_count IS NULL"))
         try:
             poster_files = list(POSTERS_DIR.glob("*.jpg"))
             id_posters = len([p for p in poster_files if p.stem.isdigit()])
         except Exception:
             id_posters = 0
             poster_files = []
-
-        # Check if TMDB API key is configured
-        tmdb_configured = False
-        try:
-            import tmdb as tmdb_mod
-            tmdb_mod.get_api_key()
-            tmdb_configured = True
-        except Exception:
-            pass
 
         return {
             "db_path": str(db_path),
@@ -246,17 +230,10 @@ def summary_payload(db_path: Path) -> dict[str, Any]:
             "avg_rating": rating_row[1],
             "rating_count": rating_count,
             "rating_buckets": buckets,
-            "books": {"read_pages": read_pages, "total_pages": total_pages},
-            "series": {
-                "watched_episodes": watched_episodes,
-                "known_total_episodes": known_total_episodes,
-                "unknown_seasons": unknown_seasons,
-            },
             "posters": {
                 "id_based": id_posters,
                 "total_files": len(poster_files) if isinstance(poster_files, list) else 0,
             },
-            "tmdb_configured": tmdb_configured,
         }
     finally:
         conn.close()
@@ -322,7 +299,6 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
             self.send_bytes(status, path.read_bytes(), file_content_type(path))
 
         def do_OPTIONS(self) -> None:  # noqa: N802
-            """Handle CORS preflight requests."""
             self.send_response(204)
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
@@ -332,7 +308,6 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
             params = parse_qs(parsed.query, keep_blank_values=True)
-            # Serve gallery index page.
             if parsed.path in ("/", "/gallery", "/gallery/"):
                 if not TEMPLATE_PATH.is_file():
                     LOGGER.error("Gallery template is missing: %s", TEMPLATE_PATH)
@@ -409,7 +384,7 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                 self.send_json(HTTPStatus.BAD_REQUEST, {"error": "Geçersiz JSON gövdesi."})
                 return
 
-            # ── Create a new record ─────────────────────────────
+            # ── Create record manually ─────────────────────────
             if parsed.path == "/api/records":
                 try:
                     title = body.get("title", "").strip()
@@ -417,9 +392,6 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                         self.send_json(HTTPStatus.BAD_REQUEST, {"error": "Başlık zorunludur."})
                         return
                     media_type = body.get("media_type", "movie")
-                    if media_type not in cli.MEDIA_TYPES:
-                        self.send_json(HTTPStatus.BAD_REQUEST, {"error": f"Geçersiz medya türü: {media_type}"})
-                        return
                     conn = db_connect(db_path)
                     try:
                         genres = body.get("genres")
@@ -433,22 +405,16 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                             rating=body.get("rating"),
                             note=body.get("note"),
                             tmdb_id=body.get("tmdb_id"),
+                            imdb_id=body.get("imdb_id"),
                             poster_path=body.get("poster_path"),
                             overview=body.get("overview"),
                             genres=genres,
                             original_title=body.get("original_title"),
+                            director=body.get("director"),
+                            cast_members=body.get("cast"),
                             runtime=body.get("runtime"),
-                            tmdb_rating=body.get("tmdb_rating"),
+                            imdb_rating=body.get("imdb_rating"),
                         )
-                        # Download poster if poster_path is provided
-                        if body.get("poster_path"):
-                            try:
-                                import tmdb as tmdb_mod
-                                dest = POSTERS_DIR / f"{mid}.jpg"
-                                POSTERS_DIR.mkdir(parents=True, exist_ok=True)
-                                tmdb_mod.download_poster(body["poster_path"], dest)
-                            except Exception as e:
-                                LOGGER.warning("Poster download failed for new record %d: %s", mid, e)
                         record = cli.fetch_media(conn, mid)
                         self.send_json(HTTPStatus.CREATED, enrich_with_poster(record) if record else {"id": mid})
                     finally:
@@ -458,7 +424,76 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                     self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": INTERNAL_ERROR_MESSAGE})
                 return
 
-            # ── TMDB Search ─────────────────────────────────────
+            # ── IMDb Search (100% Free, Zero Key) ──────────────
+            if parsed.path == "/api/imdb/search":
+                query = body.get("query", "").strip()
+                if not query:
+                    self.send_json(HTTPStatus.BAD_REQUEST, {"error": "Arama sorgusu gerekli."})
+                    return
+                try:
+                    results = imdb.search_imdb(query)
+                    self.send_json(HTTPStatus.OK, {"results": results[:20]})
+                except Exception:
+                    LOGGER.exception("IMDb search failed")
+                    self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": "IMDb arama hatası."})
+                return
+
+            # ── IMDb Import (with Turkish metadata enrichment) ──
+            if parsed.path.startswith("/api/imdb/import/"):
+                imdb_id = parsed.path.removeprefix("/api/imdb/import/").strip()
+                if not imdb_id.startswith("tt"):
+                    self.send_json(HTTPStatus.BAD_REQUEST, {"error": "Geçersiz IMDb ID."})
+                    return
+                media_type = body.get("media_type", "movie")
+                is_anime = bool(body.get("is_anime", False))
+                try:
+                    conn = db_connect(db_path)
+                    try:
+                        existing = conn.execute("SELECT id FROM media WHERE imdb_id = ?", (imdb_id,)).fetchone()
+                        if existing:
+                            record = record_payload(db_path, existing[0])
+                            self.send_json(HTTPStatus.OK, {"already_exists": True, "record": record})
+                            return
+
+                        # Fetch full metadata from Cinemeta
+                        details = imdb.get_imdb_details(imdb_id, media_type=media_type)
+                        poster_url = details.get("poster_url") or body.get("poster_url")
+
+                        # Try to enrich with official Turkish title and overview from TMDB
+                        try:
+                            import tmdb as tmdb_mod
+                            tmdb_match = tmdb_mod.find_by_imdb(imdb_id, language="tr-TR")
+                            if tmdb_match:
+                                tr_title = tmdb_match.get("title") or tmdb_match.get("name")
+                                tr_overview = tmdb_match.get("overview")
+                                if tr_title and tr_title != details.get("title"):
+                                    details["original_title"] = details.get("title")
+                                    details["title"] = tr_title
+                                if tr_overview:
+                                    details["overview"] = tr_overview
+                                if tmdb_match.get("poster_path") and not poster_url:
+                                    poster_url = tmdb_mod.poster_url(tmdb_match["poster_path"], "w500")
+                        except Exception as e:
+                            LOGGER.debug("TMDB Turkish enrichment skipped: %s", e)
+
+                        mid = cli.import_from_imdb(conn, details, is_anime=is_anime)
+
+                        # Download poster if available
+                        if poster_url:
+                            dest = POSTERS_DIR / f"{mid}.jpg"
+                            POSTERS_DIR.mkdir(parents=True, exist_ok=True)
+                            imdb.download_poster(poster_url, dest)
+
+                        record = cli.fetch_media(conn, mid)
+                        self.send_json(HTTPStatus.CREATED, enrich_with_poster(record) if record else {"id": mid})
+                    finally:
+                        conn.close()
+                except Exception:
+                    LOGGER.exception("IMDb import failed for ID %s", imdb_id)
+                    self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": "IMDb import hatası."})
+                return
+
+            # ── TMDB Search (Turkish language by default) ──────
             if parsed.path == "/api/tmdb/search":
                 try:
                     import tmdb as tmdb_mod
@@ -472,11 +507,11 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                 media_type = body.get("media_type", "multi")
                 try:
                     if media_type == "movie":
-                        data = tmdb_mod.search_movie(query, year=body.get("year"))
+                        data = tmdb_mod.search_movie(query, year=body.get("year"), language="tr-TR")
                     elif media_type == "series":
-                        data = tmdb_mod.search_tv(query, year=body.get("year"))
+                        data = tmdb_mod.search_tv(query, year=body.get("year"), language="tr-TR")
                     else:
-                        data = tmdb_mod.search_multi(query)
+                        data = tmdb_mod.search_multi(query, language="tr-TR")
                     results = [
                         tmdb_mod.search_result_to_summary(item)
                         for item in data.get("results", [])
@@ -493,7 +528,7 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                     self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": "TMDB arama hatası."})
                 return
 
-            # ── TMDB Import ─────────────────────────────────────
+            # ── TMDB Import (Turkish metadata + high-res poster) 
             if parsed.path.startswith("/api/tmdb/import/"):
                 try:
                     import tmdb as tmdb_mod
@@ -508,7 +543,6 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                 media_type = body.get("media_type", "movie")
                 is_anime = bool(body.get("is_anime", False))
                 try:
-                    # Check if already imported
                     conn = db_connect(db_path)
                     try:
                         existing = conn.execute("SELECT id FROM media WHERE tmdb_id = ?", (tmdb_id,)).fetchone()
@@ -517,12 +551,11 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                             self.send_json(HTTPStatus.OK, {"already_exists": True, "record": record})
                             return
 
-                        # Fetch full details from TMDB
                         if media_type == "series":
-                            tmdb_data = tmdb_mod.get_tv(tmdb_id)
+                            tmdb_data = tmdb_mod.get_tv(tmdb_id, language="tr-TR")
                             mapped = tmdb_mod.tv_to_media(tmdb_data)
                         else:
-                            tmdb_data = tmdb_mod.get_movie(tmdb_id)
+                            tmdb_data = tmdb_mod.get_movie(tmdb_id, language="tr-TR")
                             mapped = tmdb_mod.movie_to_media(tmdb_data)
 
                         mapped["is_anime"] = is_anime
@@ -545,55 +578,10 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                     self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": "TMDB import hatası."})
                 return
 
-            # ── Fetch poster for single record ──────────────────
-            if parsed.path.startswith("/api/records/") and parsed.path.endswith("/fetch-poster"):
-                try:
-                    mid_str = parsed.path.removeprefix("/api/records/").removesuffix("/fetch-poster")
-                    media_id = int(mid_str)
-                except ValueError:
-                    self.send_json(HTTPStatus.BAD_REQUEST, {"error": "Geçersiz kayıt ID."})
-                    return
-                try:
-                    import tmdb as tmdb_mod
-                    conn = db_connect(db_path)
-                    try:
-                        row = conn.execute("SELECT poster_path, title, release_year, media_type FROM media WHERE id = ?", (media_id,)).fetchone()
-                        if not row:
-                            self.send_json(HTTPStatus.NOT_FOUND, {"error": "Kayıt bulunamadı."})
-                            return
-                        poster_path = row["poster_path"]
-                        if not poster_path:
-                            # Try to search and match
-                            mtype = row["media_type"]
-                            if mtype == "movie":
-                                results = tmdb_mod.search_movie(row["title"], year=row["release_year"])
-                            else:
-                                results = tmdb_mod.search_tv(row["title"], year=row["release_year"])
-                            items = results.get("results", [])
-                            if items:
-                                poster_path = items[0].get("poster_path")
-                                tmdb_id = items[0].get("id")
-                                conn.execute("UPDATE media SET poster_path = ?, tmdb_id = ? WHERE id = ?", (poster_path, tmdb_id, media_id))
-                                conn.commit()
-                        if poster_path:
-                            dest = POSTERS_DIR / f"{media_id}.jpg"
-                            POSTERS_DIR.mkdir(parents=True, exist_ok=True)
-                            tmdb_mod.download_poster(poster_path, dest, overwrite=True)
-                            self.send_json(HTTPStatus.OK, {"ok": True, "poster_url": f"/static/posters/{media_id}.jpg"})
-                        else:
-                            self.send_json(HTTPStatus.NOT_FOUND, {"error": "Poster bulunamadı."})
-                    finally:
-                        conn.close()
-                except Exception:
-                    LOGGER.exception("Fetch poster failed")
-                    self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": "Poster indirme hatası."})
-                return
-
             self.send_json(HTTPStatus.NOT_FOUND, {"error": "Uç nokta bulunamadı."})
 
         def do_PUT(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
-
             if parsed.path.startswith("/api/records/"):
                 try:
                     media_id = int(parsed.path.removeprefix("/api/records/"))
@@ -619,12 +607,10 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                     LOGGER.exception("Update record failed")
                     self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": INTERNAL_ERROR_MESSAGE})
                 return
-
             self.send_json(HTTPStatus.NOT_FOUND, {"error": "Uç nokta bulunamadı."})
 
         def do_DELETE(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
-
             if parsed.path.startswith("/api/records/"):
                 try:
                     media_id = int(parsed.path.removeprefix("/api/records/"))
@@ -638,7 +624,6 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                         if not ok:
                             self.send_json(HTTPStatus.NOT_FOUND, {"error": "Kayıt bulunamadı."})
                             return
-                        # Remove poster file if exists
                         poster_file = POSTERS_DIR / f"{media_id}.jpg"
                         if poster_file.is_file():
                             poster_file.unlink()
@@ -649,7 +634,6 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                     LOGGER.exception("Delete record failed")
                     self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": INTERNAL_ERROR_MESSAGE})
                 return
-
             self.send_json(HTTPStatus.NOT_FOUND, {"error": "Uç nokta bulunamadı."})
 
         def log_message(self, format: str, *args: Any) -> None:
@@ -684,10 +668,8 @@ def main() -> int:
     print(f"Media Tracker galeri: http://{args.host}:{args.port}")
     print(f"  /          -> poster duvarı")
     print(f"  /gallery   -> poster duvarı (alias)")
-    print(f"  /api/*     -> REST API (GET/POST/PUT/DELETE)")
+    print(f"  /api/*     -> REST API (IMDb + CRUD)")
     print(f"SQLite: {db_path} (şema v{cli.SCHEMA_VERSION})")
-    poster_count = len(list(POSTERS_DIR.glob("*.jpg"))) if POSTERS_DIR.is_dir() else 0
-    print(f"Poster klasörü: {POSTERS_DIR} ({poster_count} jpg)")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
