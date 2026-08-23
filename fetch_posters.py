@@ -8,6 +8,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import sqlite3
 import sys
 import time
 from pathlib import Path
@@ -52,11 +53,18 @@ def match_and_update(conn, record: dict, dry_run: bool = False) -> str | None:
     print(f"  -> Eslesme: {tmdb_title} (TMDB #{tmdb_id})")
 
     if not dry_run and tmdb_id:
-        conn.execute(
-            "UPDATE media SET tmdb_id = ?, poster_path = ? WHERE id = ?",
-            (tmdb_id, poster_path, media_id),
-        )
-        conn.commit()
+        try:
+            conn.execute(
+                "UPDATE media SET tmdb_id = ?, poster_path = ? WHERE id = ?",
+                (tmdb_id, poster_path, media_id),
+            )
+            conn.commit()
+        except sqlite3.IntegrityError:
+            conn.execute(
+                "UPDATE media SET poster_path = ? WHERE id = ?",
+                (poster_path, media_id),
+            )
+            conn.commit()
 
     return poster_path
 

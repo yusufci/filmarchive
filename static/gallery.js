@@ -1,6 +1,6 @@
 /**
  * Media Tracker Gallery Client JavaScript v4.0
- * Dual Search (IMDb + TMDB) in Turkish, CRUD, Toast, Modals.
+ * All 6 Features: Trailers, Roulette, Stats, CSV Import/Export, Tags, and Dark Mode.
  */
 (() => {
   "use strict";
@@ -8,6 +8,7 @@
   const state = {
     kind: "all",
     status: "",
+    tag: "",
     query: "",
     sort: "updated_at",
     dir: "desc",
@@ -47,15 +48,25 @@
   const dbLine = $("dbLine");
   const refreshButton = $("refreshButton");
   const addButton = $("addButton");
+  const rouletteButton = $("rouletteButton");
+  const importExportBtn = $("importExportBtn");
+  const themeToggle = $("themeToggle");
   const jsonLink = $("jsonLink");
+
   const statTotal = $("statTotal");
   const statRating = $("statRating");
   const statRatedCount = $("statRatedCount");
   const statCompleted = $("statCompleted");
   const statInProgress = $("statInProgress");
+  const statWatchHours = $("statWatchHours");
+  const statWatchDays = $("statWatchDays");
+
   const ratingChart = $("ratingChart");
   const kindTabs = $("kindTabs");
   const statusTabs = $("statusTabs");
+  const tagPills = $("tagPills");
+  const tagsSection = $("tagsSection");
+
   const searchInput = $("searchInput");
   const sortSelect = $("sortSelect");
   const directionButton = $("directionButton");
@@ -69,12 +80,39 @@
   const errorState = $("errorState");
   const emptyState = $("emptyState");
   const posterGrid = $("posterGrid");
+
   const detailModal = $("detailModal");
   const modalContent = $("modalContent");
   const addModal = $("addModal");
   const addModalContent = $("addModalContent");
+  const trailerModal = $("trailerModal");
+  const trailerTitle = $("trailerTitle");
+  const trailerIframe = $("trailerIframe");
+  const closeTrailerBtn = $("closeTrailerBtn");
+  const importExportModal = $("importExportModal");
+  const closeImportExportBtn = $("closeImportExportBtn");
+  const csvFileInput = $("csvFileInput");
+  const uploadCsvBtn = $("uploadCsvBtn");
 
   let searchTimeout = null;
+
+  // ── Dark / Light Theme ─────────────────────────────────
+  function initTheme() {
+    const saved = localStorage.getItem("theme");
+    const isDark = saved ? saved === "dark" : true; // Default dark
+    applyTheme(isDark);
+  }
+
+  function applyTheme(isDark) {
+    document.documentElement.classList.toggle("dark", isDark);
+    if (themeToggle) themeToggle.textContent = isDark ? "🌙" : "☀️";
+    localStorage.setItem("theme", isDark ? "dark" : "light");
+  }
+
+  themeToggle?.addEventListener("click", () => {
+    const isDark = document.documentElement.classList.contains("dark");
+    applyTheme(!isDark);
+  });
 
   // ── Toast Notification ─────────────────────────────────
   function toast(message, type = "success") {
@@ -120,7 +158,7 @@
     return data;
   }
 
-  // ── Summary ────────────────────────────────────────────
+  // ── Summary & Stats ────────────────────────────────────
   async function fetchSummary() {
     try {
       const data = await api("GET", "/api/summary");
@@ -141,9 +179,16 @@
     if (statRatedCount) statRatedCount.textContent = `${(data.rating_count || 0).toLocaleString("tr-TR")} kayıt puanlandı`;
     if (statCompleted) statCompleted.textContent = (data.status_counts?.completed || 0).toLocaleString("tr-TR");
     if (statInProgress) statInProgress.textContent = (data.status_counts?.in_progress || 0).toLocaleString("tr-TR");
+
+    // Watch time
+    const wt = data.stats?.watch_time;
+    if (statWatchHours) statWatchHours.textContent = wt?.total_hours || 0;
+    if (statWatchDays) statWatchDays.textContent = `${wt?.total_days || 0} güne eşdeğer`;
+
     renderRatingChart(data.rating_buckets || []);
     renderKindTabs(data.counts || {});
     renderStatusTabs(data.status_counts || {});
+    renderTags(data.stats?.tags || []);
   }
 
   function renderRatingChart(buckets) {
@@ -158,8 +203,8 @@
       col.className = "flex-1 flex flex-col items-center gap-1 group cursor-pointer";
       col.title = `${rating} Puan: ${count} kayıt`;
       col.innerHTML = `
-        <div class="w-full bg-zinc-100 hover:bg-amber-400 transition flex items-end justify-center" style="height:60px">
-          <div class="w-full bg-zinc-800 group-hover:bg-amber-500 transition-all duration-300" style="height:${pct}%"></div>
+        <div class="w-full bg-zinc-200 dark:bg-zinc-800 hover:bg-amber-400 dark:hover:bg-amber-400 transition flex items-end justify-center" style="height:60px">
+          <div class="w-full bg-zinc-800 dark:bg-zinc-200 group-hover:bg-amber-500 transition-all duration-300" style="height:${pct}%"></div>
         </div>
         <span class="mono text-[10px] text-zinc-500 font-semibold">${rating}</span>`;
       ratingChart.appendChild(col);
@@ -172,8 +217,8 @@
     ["all", "movie", "anime-movie", "series", "anime-series", "anime"].forEach((k) => {
       const active = state.kind === k;
       const btn = document.createElement("button");
-      btn.className = `flex items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wider transition ${active ? "bg-zinc-950 text-white" : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"}`;
-      btn.innerHTML = `<span>${KIND_LABELS[k]}</span><span class="mono px-1.5 py-0.5 text-[10px] ${active ? "bg-zinc-800 text-zinc-300" : "bg-zinc-200 text-zinc-600"}">${counts[k] ?? 0}</span>`;
+      btn.className = `flex items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wider transition ${active ? "bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700"}`;
+      btn.innerHTML = `<span>${KIND_LABELS[k]}</span><span class="mono px-1.5 py-0.5 text-[10px] ${active ? "bg-zinc-800 dark:bg-zinc-300 text-zinc-300 dark:text-zinc-900" : "bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300"}">${counts[k] ?? 0}</span>`;
       btn.addEventListener("click", () => { state.kind = k; state.offset = 0; fetchRecords(); fetchSummary(); });
       kindTabs.appendChild(btn);
     });
@@ -186,10 +231,42 @@
       const active = state.status === st;
       const count = st === "" ? (state.summary?.counts?.all || 0) : (statusCounts[st] ?? 0);
       const btn = document.createElement("button");
-      btn.className = `flex items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wider transition ${active ? "bg-zinc-950 text-white" : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"}`;
-      btn.innerHTML = `<span>${STATUS_LABELS[st]}</span><span class="mono px-1.5 py-0.5 text-[10px] ${active ? "bg-zinc-800 text-zinc-300" : "bg-zinc-200 text-zinc-600"}">${count}</span>`;
+      btn.className = `flex items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wider transition ${active ? "bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700"}`;
+      btn.innerHTML = `<span>${STATUS_LABELS[st]}</span><span class="mono px-1.5 py-0.5 text-[10px] ${active ? "bg-zinc-800 dark:bg-zinc-300 text-zinc-300 dark:text-zinc-900" : "bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300"}">${count}</span>`;
       btn.addEventListener("click", () => { state.status = st; state.offset = 0; fetchRecords(); });
       statusTabs.appendChild(btn);
+    });
+  }
+
+  function renderTags(tags) {
+    if (!tagPills || !tagsSection) return;
+    if (!tags.length) {
+      tagsSection.classList.add("hidden");
+      return;
+    }
+    tagsSection.classList.remove("hidden");
+    tagPills.innerHTML = "";
+
+    // "Tümü" tag pill
+    const allPill = document.createElement("button");
+    const isAllActive = state.tag === "";
+    allPill.className = `px-2 py-1 text-[10px] font-semibold uppercase tracking-wider transition ${isAllActive ? "bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-900" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200"}`;
+    allPill.textContent = "Tümü";
+    allPill.addEventListener("click", () => { state.tag = ""; state.offset = 0; fetchRecords(); renderTags(tags); });
+    tagPills.appendChild(allPill);
+
+    tags.forEach((t) => {
+      const active = state.tag === t;
+      const btn = document.createElement("button");
+      btn.className = `px-2 py-1 text-[10px] font-semibold uppercase tracking-wider transition ${active ? "bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-900" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200"}`;
+      btn.textContent = `#${t}`;
+      btn.addEventListener("click", () => {
+        state.tag = active ? "" : t;
+        state.offset = 0;
+        fetchRecords();
+        renderTags(tags);
+      });
+      tagPills.appendChild(btn);
     });
   }
 
@@ -197,7 +274,11 @@
   async function fetchRecords() {
     setLoading(true);
     setError(null);
-    const params = new URLSearchParams({ kind: state.kind, status: state.status, q: state.query, sort: state.sort, dir: state.dir, limit: state.limit, offset: state.offset });
+    const params = new URLSearchParams({
+      kind: state.kind, status: state.status, tag: state.tag,
+      q: state.query, sort: state.sort, dir: state.dir,
+      limit: state.limit, offset: state.offset
+    });
     const url = `/api/records?${params}`;
     if (jsonLink) jsonLink.href = url;
     try {
@@ -291,6 +372,7 @@
       const statusColor = STATUS_COLORS[rec.status] || "bg-zinc-700 text-white";
       const posterSrc = rec.poster_url;
       const genres = Array.isArray(rec.genres) ? rec.genres : [];
+      const tags = Array.isArray(rec.tags) ? rec.tags : [];
 
       let seasonsHtml = "";
       if (rec.seasons?.length) {
@@ -322,10 +404,21 @@
             </div>
             ${rec.director ? `<div class="mt-2 text-xs text-zinc-400"><span class="text-zinc-500 font-medium">Yönetmen:</span> ${rec.director}</div>` : ""}
             ${rec.cast_members ? `<div class="mt-1 text-xs text-zinc-400"><span class="text-zinc-500 font-medium">Oyuncular:</span> ${rec.cast_members}</div>` : ""}
+            <!-- Trailer Button -->
+            <div class="mt-3">
+              <button id="openTrailerBtn" class="border border-red-600/80 bg-red-600/20 text-red-300 hover:bg-red-600 hover:text-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition">
+                ▶ Fragmanı İzle
+              </button>
+            </div>
           </div>
         </div>
         ${rec.overview ? `<div class="mt-4"><h4 class="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1">Özet</h4><p class="text-sm text-zinc-300 leading-relaxed bg-zinc-800/30 p-3">${rec.overview}</p></div>` : ""}
         ${rec.note ? `<div class="mt-3"><h4 class="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1">Kişisel Not</h4><p class="text-sm text-zinc-300 bg-zinc-800/30 p-3">${rec.note}</p></div>` : ""}
+        <!-- Tags input -->
+        <div class="mt-3">
+          <label class="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1 block">Özel Etiketler (Virgülle ayırın)</label>
+          <input id="modalTagsInput" type="text" value="${tags.join(", ")}" placeholder="Örn: Favoriler, Oscar, Nolan, Maraton" class="w-full bg-zinc-800 border border-zinc-700 px-3 py-1.5 text-xs text-zinc-200 outline-none" />
+        </div>
         ${seasonsHtml}
         <div class="mt-5 pt-4 border-t border-zinc-800 flex flex-wrap items-center gap-2">
           <select id="modalStatusSelect" class="bg-zinc-800 border border-zinc-700 text-zinc-200 px-2 py-1.5 text-xs">
@@ -343,11 +436,30 @@
           <span>Güncelleme: ${rec.updated_at || "—"}</span>
         </div>`;
 
+      // Trailer handler
+      $("openTrailerBtn")?.addEventListener("click", async () => {
+        try {
+          const tdata = await api("GET", `/api/records/${rec.id}/trailer`);
+          if (trailerTitle) trailerTitle.textContent = `${rec.title} — Fragman`;
+          if (trailerIframe) trailerIframe.src = tdata.trailer_url;
+          showModal(trailerModal);
+        } catch (e) {
+          toast("Fragman bulunamadı: " + e.message, "error");
+        }
+      });
+
+      // Save handler
       $("modalSaveBtn")?.addEventListener("click", async () => {
         const newStatus = $("modalStatusSelect")?.value;
         const ratingVal = $("modalRatingSelect")?.value;
+        const tagsVal = $("modalTagsInput")?.value || "";
+        const tagsArr = tagsVal.split(",").map(t => t.strip ? t.strip() : t.trim()).filter(Boolean);
         try {
-          await api("PUT", `/api/records/${rec.id}`, { status: newStatus, rating: ratingVal ? parseInt(ratingVal) : null });
+          await api("PUT", `/api/records/${rec.id}`, {
+            status: newStatus,
+            rating: ratingVal ? parseInt(ratingVal) : null,
+            tags: tagsArr,
+          });
           toast("Kayıt güncellendi");
           hideModal(detailModal);
           fetchRecords();
@@ -355,6 +467,7 @@
         } catch (e) { toast("Güncelleme hatası: " + e.message, "error"); }
       });
 
+      // Delete handler
       $("modalDeleteBtn")?.addEventListener("click", async () => {
         if (!confirm(`"${rec.title}" kaydını silmek istediğinden emin misin?`)) return;
         try {
@@ -369,6 +482,20 @@
       modalContent.innerHTML = `<div class="p-6 text-center text-red-400">Detay yüklenemedi: ${err.message}</div>`;
     }
   }
+
+  // ── Roulette ("Ne İzlesem?") ───────────────────────────
+  rouletteButton?.addEventListener("click", async () => {
+    try {
+      const params = new URLSearchParams();
+      if (state.kind && state.kind !== "all") params.set("kind", state.kind);
+      // Pick random
+      const rec = await api("GET", `/api/random?${params}`);
+      toast(`🎲 Çıkan yapım: "${rec.title}"!`);
+      openDetail(rec.id);
+    } catch (err) {
+      toast("Seçilecek film bulunamadı: " + err.message, "info");
+    }
+  });
 
   // ── Add Modal (IMDb + TMDB + Manual) ───────────────────
   function openAddModal() {
@@ -444,14 +571,12 @@
 
     $("closeAddModal")?.addEventListener("click", () => hideModal(addModal));
 
-    // IMDb search
     let imdbTimeout = null;
     $("imdbSearchInput")?.addEventListener("input", (e) => {
       clearTimeout(imdbTimeout);
       imdbTimeout = setTimeout(() => searchImdb(e.target.value.trim()), 300);
     });
 
-    // TMDB search
     let tmdbTimeout = null;
     $("tmdbSearchInput")?.addEventListener("input", (e) => {
       clearTimeout(tmdbTimeout);
@@ -605,6 +730,45 @@
     } catch (err) { toast("Ekleme hatası: " + err.message, "error"); }
   }
 
+  // ── Import / Export Modal Handlers ─────────────────────
+  importExportBtn?.addEventListener("click", () => showModal(importExportModal));
+  closeImportExportBtn?.addEventListener("click", () => hideModal(importExportModal));
+
+  uploadCsvBtn?.addEventListener("click", async () => {
+    const file = csvFileInput?.files?.[0];
+    if (!file) {
+      toast("Lütfen bir .csv dosyası seçin", "error");
+      return;
+    }
+    uploadCsvBtn.textContent = "Yükleniyor…";
+    uploadCsvBtn.disabled = true;
+    try {
+      const text = await file.text();
+      const res = await fetch("/api/import/csv", {
+        method: "POST",
+        headers: { "Content-Type": "text/csv; charset=utf-8" },
+        body: text,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Yükleme hatası");
+      toast(`${data.imported || 0} film içe aktarıldı (${data.skipped || 0} atlandı)`);
+      hideModal(importExportModal);
+      fetchRecords();
+      fetchSummary();
+    } catch (err) {
+      toast("CSV yükleme hatası: " + err.message, "error");
+    } finally {
+      uploadCsvBtn.textContent = "CSV'yi İçe Aktar";
+      uploadCsvBtn.disabled = false;
+    }
+  });
+
+  // ── Trailer Modal Handlers ─────────────────────────────
+  closeTrailerBtn?.addEventListener("click", () => {
+    if (trailerIframe) trailerIframe.src = "";
+    hideModal(trailerModal);
+  });
+
   // ── Modal Helpers ──────────────────────────────────────
   function showModal(el) { el.classList.remove("hidden"); el.classList.add("flex"); }
   function hideModal(el) { el.classList.add("hidden"); el.classList.remove("flex"); }
@@ -638,17 +802,28 @@
   prevButton?.addEventListener("click", () => { if (state.offset > 0) { state.offset = Math.max(0, state.offset - state.limit); fetchRecords(); } });
   nextButton?.addEventListener("click", () => { if (state.offset + state.limit < state.total) { state.offset += state.limit; fetchRecords(); } });
 
-  [detailModal, addModal].forEach((m) => {
+  [detailModal, addModal, trailerModal, importExportModal].forEach((m) => {
     if (!m) return;
-    m.addEventListener("click", (e) => { if (e.target === m) hideModal(m); });
+    m.addEventListener("click", (e) => {
+      if (e.target === m) {
+        if (m === trailerModal && trailerIframe) trailerIframe.src = "";
+        hideModal(m);
+      }
+    });
   });
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
-      [detailModal, addModal].forEach((m) => { if (m && !m.classList.contains("hidden")) hideModal(m); });
+      [detailModal, addModal, trailerModal, importExportModal].forEach((m) => {
+        if (m && !m.classList.contains("hidden")) {
+          if (m === trailerModal && trailerIframe) trailerIframe.src = "";
+          hideModal(m);
+        }
+      });
     }
   });
 
   // ── Init ───────────────────────────────────────────────
+  initTheme();
   fetchSummary();
   fetchRecords();
 })();

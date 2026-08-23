@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Media Tracker poster gallery server and API."""
+"""Media Tracker poster gallery server and API v4.0."""
 
 from __future__ import annotations
 
@@ -7,8 +7,10 @@ import argparse
 import json
 import logging
 import mimetypes
+import random
 import re
 import sqlite3
+import urllib.parse
 from dataclasses import dataclass
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -29,7 +31,7 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8766
 DEFAULT_LIMIT = 50
 MAX_LIMIT = 200
-SERVER_VERSION = "MediaTrackerGallery/2.0"
+SERVER_VERSION = "MediaTrackerGallery/4.0"
 INTERNAL_ERROR_MESSAGE = "İstek işlenirken bir hata oluştu."
 LOGGER = logging.getLogger("media_tracker.gallery")
 
@@ -43,6 +45,7 @@ class QueryOptions:
 
     kind: str = "all"
     status: str | None = None
+    tag: str | None = None
     query: str = ""
     sort: str = "updated_at"
     direction: str = "desc"
@@ -57,6 +60,7 @@ class QueryOptions:
             kind = "all"
         status_raw = first_param(params, "status", "")
         status = status_raw if status_raw in cli.STATUSES else None
+        tag = first_param(params, "tag", "").strip() or None
         query = first_param(params, "q", "").strip()
         sort = first_param(params, "sort", "updated_at")
         if sort not in cli.SORT_COLUMNS:
@@ -66,7 +70,7 @@ class QueryOptions:
             direction = "desc"
         limit = max(1, min(parse_int_param(params, "limit", DEFAULT_LIMIT), MAX_LIMIT))
         offset = max(0, parse_int_param(params, "offset", 0))
-        return cls(kind, status, query, sort, direction, limit, offset)
+        return cls(kind, status, tag, query, sort, direction, limit, offset)
 
 
 def first_param(params: dict[str, list[str]], name: str, default: str) -> str:
@@ -136,7 +140,7 @@ def gallery_where_adjust(where: str) -> str:
 def records_payload(db_path: Path, params: dict[str, list[str]]) -> dict[str, Any]:
     """Fetch paginated visual media records enriched with poster metadata."""
     options = QueryOptions.from_params(params)
-    where, values = cli.media_where(options.kind, options.query, options.status)
+    where, values = cli.media_where(options.kind, options.query, options.status, options.tag)
     where = gallery_where_adjust(where)
     count_sql = (
         "SELECT COUNT(DISTINCT m.id) FROM media AS m "
@@ -163,6 +167,7 @@ def records_payload(db_path: Path, params: dict[str, list[str]]) -> dict[str, An
             "offset": options.offset,
             "kind": options.kind,
             "status": options.status,
+            "tag": options.tag,
             "query": options.query,
             "sort": options.sort,
             "dir": options.direction,
@@ -192,7 +197,7 @@ def scalar(conn: sqlite3.Connection, sql: str, values: tuple[Any, ...] = (), fal
 
 
 def summary_payload(db_path: Path) -> dict[str, Any]:
-    """Generate overall visual media counts, rating distributions, and poster metrics."""
+    """Generate overall visual media counts, rating distributions, watch time, and stats."""
     conn = db_connect(db_path)
     try:
         counts = {
@@ -215,12 +220,15 @@ def summary_payload(db_path: Path) -> dict[str, Any]:
             "SELECT rating, COUNT(*) FROM media WHERE rating IS NOT NULL AND media_type != 'book' GROUP BY rating"
         ):
             buckets[int(rating)] = int(count)
+
         try:
             poster_files = list(POSTERS_DIR.glob("*.jpg"))
             id_posters = len([p for p in poster_files if p.stem.isdigit()])
         except Exception:
             id_posters = 0
             poster_files = []
+
+        advanced = cli.get_advanced_stats(conn)
 
         return {
             "db_path": str(db_path),
@@ -234,6 +242,7 @@ def summary_payload(db_path: Path) -> dict[str, Any]:
                 "id_based": id_posters,
                 "total_files": len(poster_files) if isinstance(poster_files, list) else 0,
             },
+            "stats": advanced,
         }
     finally:
         conn.close()
@@ -277,18 +286,48 @@ def file_content_type(path: Path) -> str:
     return content_type
 
 
+def get_trailer_url(record: dict[str, Any]) -> str:
+    """Find or construct a YouTube embed URL for a media trailer."""
+    # 1. If trailer_key is stored
+    if record.get("trailer_key"):
+        return f"https://www.youtube-nocookie.com/embed/{record['trailer_key']}?autoplay=1"
+
+    # 2. If tmdb_id exists, try TMDB videos endpoint
+    if record.get("tmdb_id"):
+        try:
+            import tmdb as tmdb_mod
+            mtype = "tv" if record.get("media_type") == "series" else "movie"
+            vdata = tmdb_mod._request(f"/{mtype}/{record['tmdb_id']}/videos", {"language": "tr-TR"})
+            results = vdata.get("results", [])
+            if not results:
+                vdata = tmdb_mod._request(f"/{mtype}/{record['tmdb_id']}/videos", {"language": "en-US"})
+                results = vdata.get("results", [])
+            for v in results:
+                if v.get("site") == "YouTube" and v.get("key"):
+                    return f"https://www.youtube-nocookie.com/embed/{v['key']}?autoplay=1"
+        except Exception:
+            pass
+
+    # 3. Fallback: YouTube search embed
+    q = f"{record.get('title', '')} {record.get('release_year', '')} fragman trailer"
+    return f"https://www.youtube-nocookie.com/embed?listType=search&list={urllib.parse.quote(q)}&autoplay=1"
+
+
 def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
     """Create an HTTP request handler bound to the given database path."""
     class GalleryHandler(BaseHTTPRequestHandler):
         server_version = SERVER_VERSION
 
-        def send_bytes(self, status: HTTPStatus, body: bytes, content_type: str) -> None:
+        def send_bytes(self, status: HTTPStatus, body: bytes, content_type: str, extra_headers: dict[str, str] | None = None) -> None:
             self.send_response(status.value)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Access-Control-Allow-Origin", "*")
+            if extra_headers:
+                for k, v in extra_headers.items():
+                    self.send_header(k, v)
             self.end_headers()
             self.wfile.write(body)
 
@@ -336,6 +375,60 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                     LOGGER.exception("Records API request failed")
                     self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": INTERNAL_ERROR_MESSAGE})
                 return
+
+            # ── Random Movie / Roulette ────────────────────────
+            if parsed.path == "/api/random":
+                conn = db_connect(db_path)
+                try:
+                    options = QueryOptions.from_params(params)
+                    where, values = cli.media_where(options.kind, options.query, options.status, options.tag)
+                    where = gallery_where_adjust(where)
+                    sql = cli.base_record_sql() + f" {where} GROUP BY m.id ORDER BY RANDOM() LIMIT 1"
+                    row = conn.execute(sql, values).fetchone()
+                    if not row:
+                        self.send_json(HTTPStatus.NOT_FOUND, {"error": "Uygun kayıt bulunamadı."})
+                    else:
+                        self.send_json(HTTPStatus.OK, enrich_with_poster(cli.row_to_record(row)))
+                finally:
+                    conn.close()
+                return
+
+            # ── Backup Export (JSON or CSV) ────────────────────
+            if parsed.path == "/api/export":
+                fmt = first_param(params, "format", "json").lower()
+                conn = db_connect(db_path)
+                try:
+                    if fmt == "csv":
+                        csv_data = cli.export_records_csv(conn).encode("utf-8-sig")
+                        self.send_bytes(
+                            HTTPStatus.OK, csv_data, "text/csv; charset=utf-8",
+                            {"Content-Disposition": 'attachment; filename="media-tracker-export.csv"'}
+                        )
+                    else:
+                        json_data = cli.export_records_json(conn).encode("utf-8")
+                        self.send_bytes(
+                            HTTPStatus.OK, json_data, "application/json; charset=utf-8",
+                            {"Content-Disposition": 'attachment; filename="media-tracker-backup.json"'}
+                        )
+                finally:
+                    conn.close()
+                return
+
+            # ── Trailer Lookup ─────────────────────────────────
+            if parsed.path.startswith("/api/records/") and parsed.path.endswith("/trailer"):
+                try:
+                    mid_str = parsed.path.removeprefix("/api/records/").removesuffix("/trailer")
+                    media_id = int(mid_str)
+                    rec = record_payload(db_path, media_id)
+                    if not rec:
+                        self.send_json(HTTPStatus.NOT_FOUND, {"error": "Kayıt bulunamadı."})
+                        return
+                    trailer_url = get_trailer_url(rec)
+                    self.send_json(HTTPStatus.OK, {"title": rec["title"], "trailer_url": trailer_url})
+                except Exception as e:
+                    self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": str(e)})
+                return
+
             if parsed.path.startswith("/api/records/"):
                 try:
                     media_id = int(parsed.path.removeprefix("/api/records/"))
@@ -378,6 +471,23 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
 
         def do_POST(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
+
+            # ── CSV File Import ────────────────────────────────
+            if parsed.path == "/api/import/csv":
+                length = int(self.headers.get("Content-Length", 0))
+                raw = self.rfile.read(length)
+                try:
+                    csv_text = raw.decode("utf-8-sig")
+                except UnicodeDecodeError:
+                    csv_text = raw.decode("latin-1", errors="replace")
+                conn = db_connect(db_path)
+                try:
+                    result = cli.import_csv_data(conn, csv_text)
+                    self.send_json(HTTPStatus.OK, result)
+                finally:
+                    conn.close()
+                return
+
             try:
                 body = read_json_body(self)
             except Exception:
@@ -397,6 +507,9 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                         genres = body.get("genres")
                         if isinstance(genres, list):
                             genres = json.dumps(genres, ensure_ascii=False)
+                        tags = body.get("tags")
+                        if isinstance(tags, list):
+                            tags = json.dumps(tags, ensure_ascii=False)
                         mid = cli.add_media(
                             conn, title, media_type,
                             is_anime=bool(body.get("is_anime", False)),
@@ -414,6 +527,8 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                             cast_members=body.get("cast"),
                             runtime=body.get("runtime"),
                             imdb_rating=body.get("imdb_rating"),
+                            tags=tags,
+                            trailer_key=body.get("trailer_key"),
                         )
                         record = cli.fetch_media(conn, mid)
                         self.send_json(HTTPStatus.CREATED, enrich_with_poster(record) if record else {"id": mid})
@@ -424,7 +539,7 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                     self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": INTERNAL_ERROR_MESSAGE})
                 return
 
-            # ── IMDb Search (100% Free, Zero Key) ──────────────
+            # ── IMDb Search ────────────────────────────────────
             if parsed.path == "/api/imdb/search":
                 query = body.get("query", "").strip()
                 if not query:
@@ -438,7 +553,7 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                     self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": "IMDb arama hatası."})
                 return
 
-            # ── IMDb Import (with Turkish metadata enrichment) ──
+            # ── IMDb Import ────────────────────────────────────
             if parsed.path.startswith("/api/imdb/import/"):
                 imdb_id = parsed.path.removeprefix("/api/imdb/import/").strip()
                 if not imdb_id.startswith("tt"):
@@ -455,7 +570,6 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                             self.send_json(HTTPStatus.OK, {"already_exists": True, "record": record})
                             return
 
-                        # Fetch full metadata from Cinemeta
                         details = imdb.get_imdb_details(imdb_id, media_type=media_type)
                         poster_url = details.get("poster_url") or body.get("poster_url")
 
@@ -473,12 +587,14 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                                     details["overview"] = tr_overview
                                 if tmdb_match.get("poster_path") and not poster_url:
                                     poster_url = tmdb_mod.poster_url(tmdb_match["poster_path"], "w500")
+                                if tmdb_match.get("id"):
+                                    details["tmdb_id"] = tmdb_match["id"]
+                                    details["tmdb_rating"] = tmdb_match.get("vote_average")
                         except Exception as e:
                             LOGGER.debug("TMDB Turkish enrichment skipped: %s", e)
 
                         mid = cli.import_from_imdb(conn, details, is_anime=is_anime)
 
-                        # Download poster if available
                         if poster_url:
                             dest = POSTERS_DIR / f"{mid}.jpg"
                             POSTERS_DIR.mkdir(parents=True, exist_ok=True)
@@ -493,7 +609,7 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                     self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": "IMDb import hatası."})
                 return
 
-            # ── TMDB Search (Turkish language by default) ──────
+            # ── TMDB Search ────────────────────────────────────
             if parsed.path == "/api/tmdb/search":
                 try:
                     import tmdb as tmdb_mod
@@ -521,14 +637,12 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                         "results": results[:20],
                         "total_results": data.get("total_results", 0),
                     })
-                except RuntimeError as e:
-                    self.send_json(HTTPStatus.BAD_REQUEST, {"error": str(e)})
                 except Exception:
                     LOGGER.exception("TMDB search failed")
                     self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": "TMDB arama hatası."})
                 return
 
-            # ── TMDB Import (Turkish metadata + high-res poster) 
+            # ── TMDB Import ────────────────────────────────────
             if parsed.path.startswith("/api/tmdb/import/"):
                 try:
                     import tmdb as tmdb_mod
@@ -562,7 +676,6 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
 
                         mid = cli.import_from_tmdb(conn, mapped)
 
-                        # Download poster
                         poster_path = tmdb_data.get("poster_path")
                         if poster_path:
                             dest = POSTERS_DIR / f"{mid}.jpg"
@@ -593,6 +706,9 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                     genres = body.get("genres")
                     if isinstance(genres, list):
                         body["genres"] = json.dumps(genres, ensure_ascii=False)
+                    tags = body.get("tags")
+                    if isinstance(tags, list):
+                        body["tags"] = json.dumps(tags, ensure_ascii=False)
                     conn = db_connect(db_path)
                     try:
                         ok = cli.update_media(conn, media_id, **body)
@@ -666,9 +782,9 @@ def main() -> int:
         return 1
     server = ThreadingHTTPServer((args.host, args.port), make_handler(db_path))
     print(f"Media Tracker galeri: http://{args.host}:{args.port}")
-    print(f"  /          -> poster duvarı")
-    print(f"  /gallery   -> poster duvarı (alias)")
-    print(f"  /api/*     -> REST API (IMDb + CRUD)")
+    print(f"  /            -> poster duvarı")
+    print(f"  /api/random  -> rastgele film seçici")
+    print(f"  /api/export  -> JSON / CSV yedek")
     print(f"SQLite: {db_path} (şema v{cli.SCHEMA_VERSION})")
     try:
         server.serve_forever()

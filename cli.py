@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import csv
+import io
 import json
 import sqlite3
 import sys
@@ -13,7 +15,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent
 SCHEMA_FILE = ROOT / "schema.sql"
 DEFAULT_DB_FILE = ROOT / "media.sqlite"
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 STATUSES = ("planned", "in_progress", "completed", "paused", "dropped")
 MEDIA_TYPES = ("movie", "series", "book")
@@ -58,21 +60,17 @@ def _migrate_columns(conn: sqlite3.Connection) -> None:
         ("runtime", "INTEGER"),
         ("tmdb_rating", "REAL"),
         ("imdb_rating", "REAL"),
+        ("tags", "TEXT"),
+        ("trailer_key", "TEXT"),
     ]
     existing = {row[1] for row in conn.execute("PRAGMA table_info(media)").fetchall()}
     for col_name, col_type in new_columns:
         if col_name not in existing:
             conn.execute(f"ALTER TABLE media ADD COLUMN {col_name} {col_type}")
 
-    conn.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_media_tmdb_id "
-        "ON media(tmdb_id) WHERE tmdb_id IS NOT NULL"
-    )
-    conn.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_media_imdb_id "
-        "ON media(imdb_id) WHERE imdb_id IS NOT NULL"
-    )
-    conn.execute("PRAGMA user_version = 3")
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_media_tmdb_id ON media(tmdb_id) WHERE tmdb_id IS NOT NULL")
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_media_imdb_id ON media(imdb_id) WHERE imdb_id IS NOT NULL")
+    conn.execute("PRAGMA user_version = 4")
     conn.commit()
 
 
@@ -95,7 +93,7 @@ def ensure_schema(db_path: Path) -> None:
         conn.close()
 
 
-def media_where(kind: str = "all", query: str = "", status: str | None = None) -> tuple[str, list[Any]]:
+def media_where(kind: str = "all", query: str = "", status: str | None = None, tag: str | None = None) -> tuple[str, list[Any]]:
     """Construct SQL WHERE clause and parameter list based on filter criteria."""
     clauses: list[str] = []
     values: list[Any] = []
@@ -117,10 +115,14 @@ def media_where(kind: str = "all", query: str = "", status: str | None = None) -
         clauses.append("m.status = ?")
         values.append(status)
 
+    if tag:
+        clauses.append("m.tags LIKE ?")
+        values.append(f"%{tag}%")
+
     if query:
-        clauses.append("(m.title LIKE ? OR m.note LIKE ? OR CAST(m.release_year AS TEXT) LIKE ? OR m.director LIKE ?)")
+        clauses.append("(m.title LIKE ? OR m.original_title LIKE ? OR m.note LIKE ? OR CAST(m.release_year AS TEXT) LIKE ? OR m.director LIKE ? OR m.cast_members LIKE ?)")
         q_like = f"%{query}%"
-        values.extend([q_like, q_like, q_like, q_like])
+        values.extend([q_like, q_like, q_like, q_like, q_like, q_like])
 
     where = "WHERE " + " AND ".join(clauses) if clauses else ""
     return where, values
@@ -151,6 +153,8 @@ def base_record_sql() -> str:
             m.runtime,
             m.tmdb_rating,
             m.imdb_rating,
+            m.tags,
+            m.trailer_key,
             bd.author,
             bd.total_pages,
             bd.read_pages,
@@ -172,9 +176,19 @@ def row_to_record(row: sqlite3.Row) -> dict[str, Any]:
         try:
             d["genres"] = json.loads(genres_raw)
         except (json.JSONDecodeError, ValueError):
-            d["genres"] = []
+            d["genres"] = [g.strip() for g in genres_raw.split(",") if g.strip()]
     elif not genres_raw:
         d["genres"] = []
+
+    tags_raw = d.get("tags")
+    if tags_raw and isinstance(tags_raw, str):
+        try:
+            d["tags"] = json.loads(tags_raw)
+        except (json.JSONDecodeError, ValueError):
+            d["tags"] = [t.strip() for t in tags_raw.split(",") if t.strip()]
+    elif not tags_raw:
+        d["tags"] = []
+
     return d
 
 
@@ -214,18 +228,20 @@ def add_media(
     runtime: int | None = None,
     tmdb_rating: float | None = None,
     imdb_rating: float | None = None,
+    tags: str | None = None,
+    trailer_key: str | None = None,
 ) -> int:
     """Insert a new media record and return its generated ID."""
     cur = conn.execute(
         """
         INSERT INTO media (title, media_type, is_anime, status, release_year, rating, note,
                            tmdb_id, imdb_id, poster_path, overview, genres, original_title,
-                           director, cast_members, runtime, tmdb_rating, imdb_rating)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                           director, cast_members, runtime, tmdb_rating, imdb_rating, tags, trailer_key)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (title.strip(), media_type, int(is_anime), status, release_year, rating, note,
          tmdb_id, imdb_id, poster_path, overview, genres, original_title,
-         director, cast_members, runtime, tmdb_rating, imdb_rating),
+         director, cast_members, runtime, tmdb_rating, imdb_rating, tags, trailer_key),
     )
     conn.commit()
     return int(cur.lastrowid)
@@ -236,7 +252,7 @@ def update_media(conn: sqlite3.Connection, media_id: int, **fields: Any) -> bool
     allowed = {
         "title", "media_type", "is_anime", "status", "release_year", "rating", "note",
         "tmdb_id", "imdb_id", "poster_path", "overview", "genres", "original_title",
-        "director", "cast_members", "runtime", "tmdb_rating", "imdb_rating",
+        "director", "cast_members", "runtime", "tmdb_rating", "imdb_rating", "tags", "trailer_key",
     }
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
@@ -276,7 +292,7 @@ def add_series_season(
 def import_from_imdb(conn: sqlite3.Connection, imdb_data: dict[str, Any], is_anime: bool = False) -> int:
     """Import a media record from mapped IMDb data. Returns new media ID."""
     seasons = imdb_data.pop("seasons", [])
-    imdb_data.pop("poster_url", None)  # Not a DB column
+    imdb_data.pop("poster_url", None)
 
     media_id = add_media(
         conn,
@@ -295,6 +311,8 @@ def import_from_imdb(conn: sqlite3.Connection, imdb_data: dict[str, Any], is_ani
         cast_members=imdb_data.get("cast"),
         runtime=imdb_data.get("runtime"),
         imdb_rating=imdb_data.get("imdb_rating"),
+        tags=imdb_data.get("tags"),
+        trailer_key=imdb_data.get("trailer_key"),
     )
 
     if imdb_data.get("media_type") == "series" and seasons:
@@ -322,11 +340,162 @@ def import_from_tmdb(conn: sqlite3.Connection, tmdb_data: dict[str, Any]) -> int
     return media_id
 
 
+def get_advanced_stats(conn: sqlite3.Connection) -> dict[str, Any]:
+    """Calculate watch time, top directors, top genres, and available tags."""
+    # Watch time calculation
+    movie_minutes = conn.execute(
+        "SELECT SUM(COALESCE(runtime, 110)) FROM media WHERE media_type = 'movie' AND status = 'completed'"
+    ).fetchone()[0] or 0
+
+    series_episodes = conn.execute(
+        "SELECT SUM(COALESCE(ss.watched_episodes, 0)) FROM series_seasons ss "
+        "JOIN media m ON m.id = ss.media_id WHERE m.status IN ('completed', 'in_progress')"
+    ).fetchone()[0] or 0
+    series_minutes = series_episodes * 45
+
+    total_minutes = movie_minutes + series_minutes
+    total_hours = round(total_minutes / 60, 1)
+    total_days = round(total_hours / 24, 1)
+
+    # Top Directors
+    director_counts: dict[str, int] = {}
+    for row in conn.execute("SELECT director FROM media WHERE director IS NOT NULL AND director != ''"):
+        for d in row[0].split(","):
+            name = d.strip()
+            if name:
+                director_counts[name] = director_counts.get(name, 0) + 1
+    top_directors = sorted(director_counts.items(), key=lambda x: x[1], reverse=True)[:6]
+
+    # Top Genres
+    genre_counts: dict[str, int] = {}
+    for row in conn.execute("SELECT genres FROM media WHERE genres IS NOT NULL AND genres != ''"):
+        raw = row[0]
+        try:
+            glist = json.loads(raw) if raw.startswith("[") else [g.strip() for g in raw.split(",")]
+        except Exception:
+            glist = [g.strip() for g in raw.split(",")]
+        for g in glist:
+            if g:
+                genre_counts[g] = genre_counts.get(g, 0) + 1
+    top_genres = sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)[:8]
+
+    # Distinct Tags
+    tags_set: set[str] = set()
+    for row in conn.execute("SELECT tags FROM media WHERE tags IS NOT NULL AND tags != ''"):
+        raw = row[0]
+        try:
+            tlist = json.loads(raw) if raw.startswith("[") else [t.strip() for t in raw.split(",")]
+        except Exception:
+            tlist = [t.strip() for t in raw.split(",")]
+        for t in tlist:
+            if t:
+                tags_set.add(t)
+
+    return {
+        "watch_time": {
+            "total_minutes": total_minutes,
+            "total_hours": total_hours,
+            "total_days": total_days,
+            "movie_hours": round(movie_minutes / 60, 1),
+            "series_hours": round(series_minutes / 60, 1),
+        },
+        "top_directors": [{"name": d[0], "count": d[1]} for d in top_directors],
+        "top_genres": [{"name": g[0], "count": g[1]} for g in top_genres],
+        "tags": sorted(tags_set),
+    }
+
+
+def export_records_json(conn: sqlite3.Connection) -> str:
+    """Export all media records and seasons as formatted JSON."""
+    rows = conn.execute(base_record_sql() + " GROUP BY m.id ORDER BY m.id ASC").fetchall()
+    records = []
+    for r in rows:
+        rec = row_to_record(r)
+        if rec["media_type"] == "series":
+            s_rows = conn.execute(
+                "SELECT season_number, episode_count, watched_episodes FROM series_seasons WHERE media_id = ? ORDER BY season_number",
+                (rec["id"],),
+            ).fetchall()
+            rec["seasons"] = [dict(s) for s in s_rows]
+        records.append(rec)
+    return json.dumps(records, ensure_ascii=False, indent=2, default=str)
+
+
+def export_records_csv(conn: sqlite3.Connection) -> str:
+    """Export media records as standard CSV."""
+    rows = conn.execute(base_record_sql() + " GROUP BY m.id ORDER BY m.id ASC").fetchall()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "id", "title", "original_title", "media_type", "is_anime", "status",
+        "release_year", "rating", "imdb_rating", "tmdb_rating", "director",
+        "genres", "tags", "note", "created_at"
+    ])
+    for r in rows:
+        rec = row_to_record(r)
+        genres_str = ", ".join(rec.get("genres", []))
+        tags_str = ", ".join(rec.get("tags", []))
+        writer.writerow([
+            rec["id"], rec["title"], rec.get("original_title", ""), rec["media_type"],
+            int(rec["is_anime"]), rec["status"], rec.get("release_year") or "",
+            rec.get("rating") or "", rec.get("imdb_rating") or "", rec.get("tmdb_rating") or "",
+            rec.get("director", ""), genres_str, tags_str, rec.get("note", ""), rec.get("created_at", "")
+        ])
+    return output.getvalue()
+
+
+def import_csv_data(conn: sqlite3.Connection, csv_text: str) -> dict[str, int]:
+    """Parse Letterboxd or IMDb export CSV and import entries."""
+    reader = csv.DictReader(io.StringIO(csv_text))
+    imported = 0
+    skipped = 0
+
+    for row in reader:
+        # Case insensitive key mapping
+        clean_row = {k.strip().lower(): (v or "").strip() for k, v in row.items() if k}
+        title = clean_row.get("name") or clean_row.get("title")
+        if not title:
+            skipped += 1
+            continue
+
+        year_val = clean_row.get("year") or clean_row.get("release date", "")[:4]
+        try:
+            year = int(year_val) if year_val else None
+        except ValueError:
+            year = None
+
+        rating_val = clean_row.get("rating") or clean_row.get("your rating")
+        try:
+            rating = int(float(rating_val)) if rating_val else None
+        except ValueError:
+            rating = None
+
+        # Check existing
+        existing = conn.execute("SELECT id FROM media WHERE title = ? AND (release_year = ? OR ? IS NULL)", (title, year, year)).fetchone()
+        if existing:
+            skipped += 1
+            continue
+
+        add_media(
+            conn,
+            title=title,
+            media_type="movie",
+            is_anime=False,
+            status="completed" if rating else "planned",
+            release_year=year,
+            rating=rating,
+            note=clean_row.get("review") or clean_row.get("notes") or None,
+            imdb_id=clean_row.get("const") if clean_row.get("const", "").startswith("tt") else None,
+        )
+        imported += 1
+
+    return {"imported": imported, "skipped": skipped}
+
+
 def reset_database(db_path: Path) -> None:
     """Completely wipe and recreate the database with an empty schema."""
     if db_path.is_file():
         db_path.unlink()
-    # Re-apply schema
     ensure_schema(db_path)
 
 
