@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Schema validation
+        run: |
+          python -c "
+          import sqlite3, tempfile, os
+          db = os.path.join(tempfile.mkdtemp(), 'test.db')
+          conn = sqlite3.connect(db)
+          conn.executescript(open('schema.sql').read())
+          v = conn.execute('PRAGMA user_version').fetchone()[0]
+          assert v == 2, f'Expected schema v2, got {v}'
+          tables = [r[0] for r in conn.execute(\"SELECT name FROM sqlite_master WHERE type='table'\").fetchall()]
+          assert 'media' in tables
+          assert 'series_seasons' in tables
+          print(f'Schema OK: v{v}, tables: {tables}')
+          conn.close()
+          "
+
+      - name: CLI init and migration
+        run: |
+          python cli.py init
+          python cli.py migrate
+          python cli.py seed
+          python cli.py list
+
+      - name: Gallery server smoke test
+        run: |
+          python gallery.py &
+          SERVER_PID=$!
+          sleep 2
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8766/health)
+          echo "Health check: HTTP $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8766/api/summary)
+          echo "Summary API: HTTP $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8766/api/records)
+          echo "Records API: HTTP $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+          kill $SERVER_PID || true
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker build
+        run: docker build -t media-tracker-test .
