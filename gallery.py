@@ -347,7 +347,7 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
             params = parse_qs(parsed.query, keep_blank_values=True)
-            if parsed.path in ("/", "/gallery", "/gallery/"):
+            if parsed.path in ("/", "/gallery", "/gallery/", "/stats", "/analytics"):
                 if not TEMPLATE_PATH.is_file():
                     LOGGER.error("Gallery template is missing: %s", TEMPLATE_PATH)
                     self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": INTERNAL_ERROR_MESSAGE})
@@ -376,8 +376,31 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                     self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": INTERNAL_ERROR_MESSAGE})
                 return
 
-            # ── Random Movie / Roulette ────────────────────────
-            if parsed.path == "/api/random":
+            # ── Discover Random (Archive / TMDB / IMDb) ────────
+            if parsed.path in ("/api/random", "/api/discover/random"):
+                source = first_param(params, "source", "archive").lower()
+                media_type = first_param(params, "media_type", "movie")
+
+                if source == "tmdb":
+                    try:
+                        import tmdb as tmdb_mod
+                        rec = tmdb_mod.get_random_trending(media_type=media_type, language="tr-TR")
+                        if rec:
+                            self.send_json(HTTPStatus.OK, {"source": "tmdb", "item": rec})
+                            return
+                    except Exception as e:
+                        LOGGER.warning("TMDB discover random failed: %s", e)
+
+                if source == "imdb":
+                    try:
+                        rec = imdb.get_random_imdb_top()
+                        if rec:
+                            self.send_json(HTTPStatus.OK, {"source": "imdb", "item": rec})
+                            return
+                    except Exception as e:
+                        LOGGER.warning("IMDb discover random failed: %s", e)
+
+                # Default fallback: Local SQLite Archive
                 conn = db_connect(db_path)
                 try:
                     options = QueryOptions.from_params(params)
@@ -386,9 +409,9 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                     sql = cli.base_record_sql() + f" {where} GROUP BY m.id ORDER BY RANDOM() LIMIT 1"
                     row = conn.execute(sql, values).fetchone()
                     if not row:
-                        self.send_json(HTTPStatus.NOT_FOUND, {"error": "Uygun kayıt bulunamadı."})
+                        self.send_json(HTTPStatus.NOT_FOUND, {"error": "Arşivde seçilecek uygun kayıt bulunamadı."})
                     else:
-                        self.send_json(HTTPStatus.OK, enrich_with_poster(cli.row_to_record(row)))
+                        self.send_json(HTTPStatus.OK, {"source": "archive", "item": enrich_with_poster(cli.row_to_record(row))})
                 finally:
                     conn.close()
                 return

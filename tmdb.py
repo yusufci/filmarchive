@@ -170,6 +170,22 @@ def find_by_imdb(imdb_id: str, language: str = DEFAULT_LANGUAGE) -> dict[str, An
     return None
 
 
+def get_random_trending(media_type: str = "all", language: str = DEFAULT_LANGUAGE) -> dict[str, Any] | None:
+    """Get a random trending movie or show from TMDB."""
+    import random
+    path = f"/trending/{'movie' if media_type == 'movie' else ('tv' if media_type == 'series' else 'all')}/week"
+    try:
+        data = _request(path, {"language": language})
+        results = data.get("results", [])
+        valid = [r for r in results if r.get("poster_path") and (r.get("title") or r.get("name"))]
+        if valid:
+            item = random.choice(valid)
+            return search_result_to_summary(item)
+    except Exception as e:
+        LOGGER.warning("TMDB random trending failed: %s", e)
+    return None
+
+
 # ── Poster Download ─────────────────────────────────────────────────
 
 

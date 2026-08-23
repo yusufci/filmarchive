@@ -1,11 +1,12 @@
 /**
- * Media Tracker Gallery Client JavaScript v4.0
- * All 6 Features: Trailers, Roulette, Stats, CSV Import/Export, Tags, and Dark Mode.
+ * Media Tracker Gallery Client JavaScript v6.0
+ * Comprehensive Analytics & 1-Month History, Format Distributions, Rate Metrics, Multi-Source Discovery Roulette.
  */
 (() => {
   "use strict";
 
   const state = {
+    view: "gallery", // 'gallery' | 'stats'
     kind: "all",
     status: "",
     tag: "",
@@ -16,6 +17,8 @@
     offset: 0,
     total: 0,
     summary: null,
+    rouletteSource: "tmdb",
+    currentRouletteItem: null,
   };
 
   const KIND_LABELS = {
@@ -45,6 +48,16 @@
   };
 
   const $ = (id) => document.getElementById(id);
+
+  // Views & Navigation
+  const galleryView = $("galleryView");
+  const statsView = $("statsView");
+  const navGalleryBtn = $("navGalleryBtn");
+  const navStatsBtn = $("navStatsBtn");
+  const backToGalleryBtn = $("backToGalleryBtn");
+  const statWatchTimeCard = $("statWatchTimeCard");
+
+  // Header & Controls
   const dbLine = $("dbLine");
   const refreshButton = $("refreshButton");
   const addButton = $("addButton");
@@ -53,6 +66,7 @@
   const themeToggle = $("themeToggle");
   const jsonLink = $("jsonLink");
 
+  // Quick Stats
   const statTotal = $("statTotal");
   const statRating = $("statRating");
   const statRatedCount = $("statRatedCount");
@@ -61,6 +75,37 @@
   const statWatchHours = $("statWatchHours");
   const statWatchDays = $("statWatchDays");
 
+  // Dedicated Analytics Page Elements
+  const stat30DaysCount = $("stat30DaysCount");
+  const stat30DaysHours = $("stat30DaysHours");
+  const stat30DaysGallery = $("stat30DaysGallery");
+  const statPageHours = $("statPageHours");
+  const statPageDays = $("statPageDays");
+  const statCompletionRate = $("statCompletionRate");
+  const statCompletionDetail = $("statCompletionDetail");
+  const statAvgRuntime = $("statAvgRuntime");
+  const statLongestMovie = $("statLongestMovie");
+  const statPageAvgRating = $("statPageAvgRating");
+  const statRatedPercent = $("statRatedPercent");
+
+  const barMovie = $("barMovie");
+  const barSeries = $("barSeries");
+  const barAnime = $("barAnime");
+  const statMoviePercent = $("statMoviePercent");
+  const statMovieCount = $("statMovieCount");
+  const statSeriesPercent = $("statSeriesPercent");
+  const statSeriesCount = $("statSeriesCount");
+  const statAnimePercent = $("statAnimePercent");
+  const statAnimeCount = $("statAnimeCount");
+
+  const ratingTiersList = $("ratingTiersList");
+  const statsGenresList = $("statsGenresList");
+  const statsDirectorsList = $("statsDirectorsList");
+  const statsCastList = $("statsCastList");
+  const statsDecadesList = $("statsDecadesList");
+  const statsTopRatedList = $("statsTopRatedList");
+
+  // Filters & List
   const ratingChart = $("ratingChart");
   const kindTabs = $("kindTabs");
   const statusTabs = $("statusTabs");
@@ -81,10 +126,20 @@
   const emptyState = $("emptyState");
   const posterGrid = $("posterGrid");
 
+  // Modals
   const detailModal = $("detailModal");
   const modalContent = $("modalContent");
   const addModal = $("addModal");
   const addModalContent = $("addModalContent");
+  const rouletteModal = $("rouletteModal");
+  const closeRouletteModal = $("closeRouletteModal");
+  const rouletteSourceTmdb = $("rouletteSourceTmdb");
+  const rouletteSourceImdb = $("rouletteSourceImdb");
+  const rouletteSourceArchive = $("rouletteSourceArchive");
+  const rouletteCard = $("rouletteCard");
+  const spinAgainBtn = $("spinAgainBtn");
+  const rouletteActionBtn = $("rouletteActionBtn");
+
   const trailerModal = $("trailerModal");
   const trailerTitle = $("trailerTitle");
   const trailerIframe = $("trailerIframe");
@@ -96,10 +151,33 @@
 
   let searchTimeout = null;
 
+  // ── Navigation & Views ─────────────────────────────────
+  function switchView(viewName) {
+    state.view = viewName;
+    const isGallery = viewName === "gallery";
+    galleryView?.classList.toggle("hidden", !isGallery);
+    statsView?.classList.toggle("hidden", isGallery);
+
+    navGalleryBtn.className = `px-3 py-1 text-xs font-bold uppercase tracking-wider transition ${isGallery ? "bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950" : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white"}`;
+    navStatsBtn.className = `px-3 py-1 text-xs font-bold uppercase tracking-wider transition ${!isGallery ? "bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950" : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white"}`;
+
+    if (!isGallery) {
+      renderStatsPage();
+      window.location.hash = "analytics";
+    } else {
+      window.location.hash = "";
+    }
+  }
+
+  navGalleryBtn?.addEventListener("click", () => switchView("gallery"));
+  navStatsBtn?.addEventListener("click", () => switchView("stats"));
+  backToGalleryBtn?.addEventListener("click", () => switchView("gallery"));
+  statWatchTimeCard?.addEventListener("click", () => switchView("stats"));
+
   // ── Dark / Light Theme ─────────────────────────────────
   function initTheme() {
     const saved = localStorage.getItem("theme");
-    const isDark = saved ? saved === "dark" : true; // Default dark
+    const isDark = saved ? saved === "dark" : true;
     applyTheme(isDark);
   }
 
@@ -164,6 +242,7 @@
       const data = await api("GET", "/api/summary");
       state.summary = data;
       renderSummary(data);
+      if (state.view === "stats") renderStatsPage();
     } catch (err) {
       console.error("Summary fetch error:", err);
     }
@@ -180,7 +259,7 @@
     if (statCompleted) statCompleted.textContent = (data.status_counts?.completed || 0).toLocaleString("tr-TR");
     if (statInProgress) statInProgress.textContent = (data.status_counts?.in_progress || 0).toLocaleString("tr-TR");
 
-    // Watch time
+    // Watch time in header
     const wt = data.stats?.watch_time;
     if (statWatchHours) statWatchHours.textContent = wt?.total_hours || 0;
     if (statWatchDays) statWatchDays.textContent = `${wt?.total_days || 0} güne eşdeğer`;
@@ -189,6 +268,188 @@
     renderKindTabs(data.counts || {});
     renderStatusTabs(data.status_counts || {});
     renderTags(data.stats?.tags || []);
+  }
+
+  // ── Render Full Analytics Page ─────────────────────────
+  function renderStatsPage() {
+    const data = state.summary;
+    if (!data) return;
+    const stats = data.stats || {};
+    const wt = stats.watch_time || {};
+    const last30 = stats.last_30_days || {};
+    const rates = stats.rates || {};
+    const runtime = stats.runtime_analysis || {};
+    const tiers = stats.rating_tiers || {};
+
+    // 1. Last 30 Days (1 Month)
+    if (stat30DaysCount) stat30DaysCount.textContent = `${last30.count || 0} yapım`;
+    if (stat30DaysHours) stat30DaysHours.textContent = `${last30.hours || 0} saat`;
+    if (stat30DaysGallery) {
+      const items = last30.items || [];
+      if (!items.length) {
+        stat30DaysGallery.innerHTML = `<p class="text-xs text-zinc-500 py-2">Son 30 gün içinde tamamlanan yapım bulunamadı.</p>`;
+      } else {
+        stat30DaysGallery.innerHTML = items.map(it => {
+          const posterSrc = it.poster_path ? (it.poster_path.startsWith("/") ? `/static/posters/${it.id}.jpg` : it.poster_path) : null;
+          return `
+            <div class="shrink-0 w-24 poster-card cursor-pointer" onclick="window.__openDetail(${it.id})" title="${it.title}">
+              ${posterSrc ? `<img src="${posterSrc}" alt="${it.title}" loading="lazy" class="w-full h-full object-cover" />` : `<div class="w-full h-full bg-zinc-800 p-2 text-[10px] text-white flex items-center justify-center text-center">${it.title}</div>`}
+              <div class="poster-overlay">
+                <p class="text-[10px] font-bold truncate">${it.title}</p>
+                <span class="mono text-[9px] text-amber-400 font-bold">★ ${it.rating || it.imdb_rating || "—"}</span>
+              </div>
+            </div>`;
+        }).join("");
+      }
+    }
+
+    // 2. Overview Metrics & Rates
+    if (statPageHours) statPageHours.textContent = wt.total_hours || 0;
+    if (statPageDays) statPageDays.textContent = `${wt.total_days || 0} güne eşdeğer`;
+    if (statCompletionRate) statCompletionRate.textContent = `${rates.completion_rate || 0}%`;
+    if (statCompletionDetail) statCompletionDetail.textContent = `${rates.completed_records || 0}/${rates.total_records || 0} yapım tamamlandı`;
+    if (statAvgRuntime) statAvgRuntime.textContent = runtime.avg_movie_runtime || 115;
+    if (statLongestMovie) {
+      statLongestMovie.textContent = runtime.longest_movie ? `En uzun: ${runtime.longest_movie.title} (${runtime.longest_movie.runtime} dk)` : "—";
+    }
+    if (statPageAvgRating) statPageAvgRating.textContent = data.avg_rating ? Number(data.avg_rating).toFixed(1) : "-";
+    if (statRatedPercent) {
+      const ratedPct = rates.total_records > 0 ? Math.round((data.rating_count / rates.total_records) * 100) : 0;
+      statRatedPercent.textContent = `%${ratedPct} (${data.rating_count || 0} yapım) puanlandı`;
+    }
+
+    // 3. Format Distributions
+    if (barMovie) barMovie.style.width = `${rates.movie_percent || 0}%`;
+    if (barSeries) barSeries.style.width = `${rates.series_percent || 0}%`;
+    if (barAnime) barAnime.style.width = `${rates.anime_percent || 0}%`;
+    if (statMoviePercent) statMoviePercent.textContent = `${rates.movie_percent || 0}%`;
+    if (statMovieCount) statMovieCount.textContent = `${rates.movie_count || 0} adet`;
+    if (statSeriesPercent) statSeriesPercent.textContent = `${rates.series_percent || 0}%`;
+    if (statSeriesCount) statSeriesCount.textContent = `${rates.series_count || 0} adet`;
+    if (statAnimePercent) statAnimePercent.textContent = `${rates.anime_percent || 0}%`;
+    if (statAnimeCount) statAnimeCount.textContent = `${rates.anime_count || 0} adet`;
+
+    // 4. Rating Tiers
+    if (ratingTiersList) {
+      const tierData = [
+        { label: "🌟 Başyapıt (9–10 Puan)", color: "bg-amber-400", count: tiers.masterpiece?.count || 0, pct: tiers.masterpiece?.percent || 0 },
+        { label: "💎 Çok Başarılı (7–8 Puan)", color: "bg-emerald-500", count: tiers.great?.count || 0, pct: tiers.great?.percent || 0 },
+        { label: "⚖️ Ortalama (5–6 Puan)", color: "bg-blue-500", count: tiers.average?.count || 0, pct: tiers.average?.percent || 0 },
+        { label: "📉 Düşük (1–4 Puan)", color: "bg-red-500", count: tiers.low?.count || 0, pct: tiers.low?.percent || 0 },
+      ];
+      ratingTiersList.innerHTML = tierData.map(t => `
+        <div>
+          <div class="flex justify-between text-xs font-semibold mb-1">
+            <span class="text-zinc-800 dark:text-zinc-200">${t.label}</span>
+            <span class="mono text-zinc-500">${t.count} yapım (%${t.pct})</span>
+          </div>
+          <div class="h-2 w-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
+            <div class="h-full ${t.color} transition-all duration-500" style="width:${t.pct}%"></div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    // 5. Genres Breakdown with exact percentages
+    const genres = stats.top_genres || [];
+    if (statsGenresList) {
+      if (!genres.length) {
+        statsGenresList.innerHTML = `<p class="text-xs text-zinc-500">Henüz tür verisi yok.</p>`;
+      } else {
+        statsGenresList.innerHTML = genres.map(g => `
+          <div>
+            <div class="flex justify-between text-xs font-semibold mb-1">
+              <span class="text-zinc-800 dark:text-zinc-200">${g.name}</span>
+              <span class="mono text-zinc-500">${g.count} yapım (%${g.percent || 0})</span>
+            </div>
+            <div class="h-2 w-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
+              <div class="h-full bg-purple-500 transition-all duration-500" style="width:${Math.max(5, g.percent || 0)}%"></div>
+            </div>
+          </div>
+        `).join("");
+      }
+    }
+
+    // 6. Directors
+    const directors = stats.top_directors || [];
+    if (statsDirectorsList) {
+      if (!directors.length) {
+        statsDirectorsList.innerHTML = `<p class="text-xs text-zinc-500">Henüz yönetmen verisi yok.</p>`;
+      } else {
+        const maxD = Math.max(1, ...directors.map(d => d.count));
+        statsDirectorsList.innerHTML = directors.map(d => {
+          const pct = Math.round((d.count / maxD) * 100);
+          return `
+            <div>
+              <div class="flex justify-between text-xs font-semibold mb-1">
+                <span class="text-zinc-800 dark:text-zinc-200">${d.name}</span>
+                <span class="mono text-zinc-500">${d.count} film</span>
+              </div>
+              <div class="h-2 w-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
+                <div class="h-full bg-emerald-500 transition-all duration-500" style="width:${pct}%"></div>
+              </div>
+            </div>`;
+        }).join("");
+      }
+    }
+
+    // 7. Top Cast
+    const cast = stats.top_cast || [];
+    if (statsCastList) {
+      if (!cast.length) {
+        statsCastList.innerHTML = `<p class="text-xs text-zinc-500">Henüz oyuncu verisi yok.</p>`;
+      } else {
+        statsCastList.innerHTML = cast.map(c => `
+          <div class="flex items-center justify-between p-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 text-xs">
+            <span class="font-medium text-zinc-800 dark:text-zinc-200 truncate">${c.name}</span>
+            <span class="mono font-bold text-amber-500 ml-2">${c.count} yapım</span>
+          </div>
+        `).join("");
+      }
+    }
+
+    // 8. Decades Breakdown
+    const decades = stats.decades || [];
+    if (statsDecadesList) {
+      if (!decades.length) {
+        statsDecadesList.innerHTML = `<p class="text-xs text-zinc-500">Henüz yıl verisi yok.</p>`;
+      } else {
+        const maxDec = Math.max(1, ...decades.map(d => d.count));
+        statsDecadesList.innerHTML = decades.map(d => {
+          const pct = Math.round((d.count / maxDec) * 100);
+          return `
+            <div>
+              <div class="flex justify-between text-xs font-semibold mb-1">
+                <span class="text-zinc-800 dark:text-zinc-200">${d.decade}</span>
+                <span class="mono text-zinc-500">${d.count} yapım</span>
+              </div>
+              <div class="h-2 w-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
+                <div class="h-full bg-blue-500 transition-all duration-500" style="width:${pct}%"></div>
+              </div>
+            </div>`;
+        }).join("");
+      }
+    }
+
+    // 9. Top Rated Favorites (Masterpieces)
+    const topRated = stats.top_rated || [];
+    if (statsTopRatedList) {
+      if (!topRated.length) {
+        statsTopRatedList.innerHTML = `<p class="text-xs text-zinc-500 col-span-full">Henüz 8+ puanlı favori film yok.</p>`;
+      } else {
+        statsTopRatedList.innerHTML = topRated.map(r => {
+          const posterSrc = r.poster_path ? (r.poster_path.startsWith("/") ? `/static/posters/${r.id}.jpg` : r.poster_path) : null;
+          return `
+            <div class="poster-card cursor-pointer" onclick="window.__openDetail(${r.id})">
+              ${posterSrc ? `<img src="${posterSrc}" alt="${r.title}" loading="lazy" />` : `<div class="w-full h-full bg-zinc-800 p-2 text-[10px] text-white flex items-center justify-center text-center">${r.title}</div>`}
+              <div class="poster-overlay">
+                <p class="text-xs font-bold truncate">${r.title}</p>
+                <span class="mono text-[10px] font-bold text-amber-400">★ ${r.rating || r.imdb_rating}</span>
+              </div>
+            </div>`;
+        }).join("");
+      }
+    }
   }
 
   function renderRatingChart(buckets) {
@@ -247,7 +508,6 @@
     tagsSection.classList.remove("hidden");
     tagPills.innerHTML = "";
 
-    // "Tümü" tag pill
     const allPill = document.createElement("button");
     const isAllActive = state.tag === "";
     allPill.className = `px-2 py-1 text-[10px] font-semibold uppercase tracking-wider transition ${isAllActive ? "bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-900" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200"}`;
@@ -360,6 +620,8 @@
     return card;
   }
 
+  window.__openDetail = (id) => openDetail(id);
+
   // ── Detail Modal ───────────────────────────────────────
   async function openDetail(mediaId) {
     if (!detailModal || !modalContent) return;
@@ -436,7 +698,6 @@
           <span>Güncelleme: ${rec.updated_at || "—"}</span>
         </div>`;
 
-      // Trailer handler
       $("openTrailerBtn")?.addEventListener("click", async () => {
         try {
           const tdata = await api("GET", `/api/records/${rec.id}/trailer`);
@@ -448,12 +709,11 @@
         }
       });
 
-      // Save handler
       $("modalSaveBtn")?.addEventListener("click", async () => {
         const newStatus = $("modalStatusSelect")?.value;
         const ratingVal = $("modalRatingSelect")?.value;
         const tagsVal = $("modalTagsInput")?.value || "";
-        const tagsArr = tagsVal.split(",").map(t => t.strip ? t.strip() : t.trim()).filter(Boolean);
+        const tagsArr = tagsVal.split(",").map(t => t.trim()).filter(Boolean);
         try {
           await api("PUT", `/api/records/${rec.id}`, {
             status: newStatus,
@@ -467,7 +727,6 @@
         } catch (e) { toast("Güncelleme hatası: " + e.message, "error"); }
       });
 
-      // Delete handler
       $("modalDeleteBtn")?.addEventListener("click", async () => {
         if (!confirm(`"${rec.title}" kaydını silmek istediğinden emin misin?`)) return;
         try {
@@ -483,17 +742,99 @@
     }
   }
 
-  // ── Roulette ("Ne İzlesem?") ───────────────────────────
-  rouletteButton?.addEventListener("click", async () => {
+  // ── Multi-Source Roulette ("Ne İzlesem?") ─────────────
+  rouletteButton?.addEventListener("click", () => {
+    showModal(rouletteModal);
+    spinRoulette(state.rouletteSource);
+  });
+  closeRouletteModal?.addEventListener("click", () => hideModal(rouletteModal));
+
+  function setRouletteSourceTab(src) {
+    state.rouletteSource = src;
+    rouletteSourceTmdb.className = `flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wider transition ${src === "tmdb" ? "bg-zinc-100 text-zinc-900" : "bg-zinc-800 text-zinc-400"}`;
+    rouletteSourceImdb.className = `flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wider transition ${src === "imdb" ? "bg-zinc-100 text-zinc-900" : "bg-zinc-800 text-zinc-400"}`;
+    rouletteSourceArchive.className = `flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wider transition ${src === "archive" ? "bg-zinc-100 text-zinc-900" : "bg-zinc-800 text-zinc-400"}`;
+    spinRoulette(src);
+  }
+
+  rouletteSourceTmdb?.addEventListener("click", () => setRouletteSourceTab("tmdb"));
+  rouletteSourceImdb?.addEventListener("click", () => setRouletteSourceTab("imdb"));
+  rouletteSourceArchive?.addEventListener("click", () => setRouletteSourceTab("archive"));
+  spinAgainBtn?.addEventListener("click", () => spinRoulette(state.rouletteSource));
+
+  async function spinRoulette(source) {
+    if (!rouletteCard) return;
+    rouletteCard.innerHTML = `<div class="text-center text-zinc-400 py-10 animate-pulse">🎲 Çark dönüyor, öneri çekiliyor…</div>`;
+    rouletteActionBtn.disabled = true;
+
     try {
-      const params = new URLSearchParams();
-      if (state.kind && state.kind !== "all") params.set("kind", state.kind);
-      // Pick random
-      const rec = await api("GET", `/api/random?${params}`);
-      toast(`🎲 Çıkan yapım: "${rec.title}"!`);
-      openDetail(rec.id);
+      const data = await api("GET", `/api/discover/random?source=${source}`);
+      const item = data.item;
+      state.currentRouletteItem = item;
+      const isArchive = data.source === "archive";
+
+      const title = item.title || item.name || "Untitled";
+      const year = item.release_year || (item.release_date ? item.release_date.slice(0, 4) : "—");
+      const poster = item.poster_preview || item.poster_url || (item.poster_path ? `https://image.tmdb.org/t/p/w300${item.poster_path}` : null);
+      const rating = item.rating || item.imdb_rating || item.tmdb_rating;
+      const overview = item.overview || item.note || "";
+
+      rouletteCard.innerHTML = `
+        <div class="flex gap-4 w-full text-left">
+          ${poster ? `<img src="${poster}" alt="${title}" class="w-28 shrink-0 object-cover shadow-lg border border-zinc-700" />` : `<div class="w-28 bg-zinc-800 shrink-0 flex items-center justify-center text-zinc-500 text-xs">Afiş Yok</div>`}
+          <div class="flex-1 min-w-0 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-[9px] font-bold uppercase px-1.5 py-0.5 bg-purple-900/60 text-purple-200 border border-purple-700/50">${data.source.toUpperCase()}</span>
+                <span class="text-xs text-zinc-400">${year}</span>
+                ${rating ? `<span class="mono text-xs font-bold text-amber-400 ml-auto">★ ${Number(rating).toFixed(1)}</span>` : ""}
+              </div>
+              <h4 class="text-base font-bold text-white leading-snug">${title}</h4>
+              <p class="text-xs text-zinc-300 mt-2 line-clamp-4 leading-relaxed">${overview || "Açıklama mevcut değil."}</p>
+            </div>
+          </div>
+        </div>`;
+
+      rouletteActionBtn.disabled = false;
+      if (isArchive) {
+        rouletteActionBtn.textContent = "Detayı Aç ↗";
+        rouletteActionBtn.className = "flex-1 bg-zinc-100 hover:bg-white text-zinc-900 py-2 text-xs font-semibold uppercase tracking-wider transition";
+      } else {
+        rouletteActionBtn.textContent = "+ Arşive Ekle";
+        rouletteActionBtn.className = "flex-1 bg-emerald-700 hover:bg-emerald-600 text-white py-2 text-xs font-semibold uppercase tracking-wider transition";
+      }
     } catch (err) {
-      toast("Seçilecek film bulunamadı: " + err.message, "info");
+      rouletteCard.innerHTML = `<div class="text-center text-red-400 py-10">${err.message}</div>`;
+      rouletteActionBtn.disabled = true;
+    }
+  }
+
+  rouletteActionBtn?.addEventListener("click", async () => {
+    const item = state.currentRouletteItem;
+    if (!item) return;
+    if (state.rouletteSource === "archive") {
+      hideModal(rouletteModal);
+      openDetail(item.id);
+    } else if (state.rouletteSource === "tmdb" && item.tmdb_id) {
+      rouletteActionBtn.textContent = "Ekleniyor…";
+      rouletteActionBtn.disabled = true;
+      try {
+        const res = await api("POST", `/api/tmdb/import/${item.tmdb_id}`, { media_type: item.media_type || "movie" });
+        toast(`"${res.title || item.title}" arşive eklendi!`);
+        hideModal(rouletteModal);
+        fetchRecords();
+        fetchSummary();
+      } catch (e) { toast("Ekleme hatası: " + e.message, "error"); }
+    } else if (state.rouletteSource === "imdb" && item.imdb_id) {
+      rouletteActionBtn.textContent = "Ekleniyor…";
+      rouletteActionBtn.disabled = true;
+      try {
+        const res = await api("POST", `/api/imdb/import/${item.imdb_id}`, { media_type: item.media_type || "movie", poster_url: item.poster_url });
+        toast(`"${res.title || item.title}" arşive eklendi!`);
+        hideModal(rouletteModal);
+        fetchRecords();
+        fetchSummary();
+      } catch (e) { toast("Ekleme hatası: " + e.message, "error"); }
     }
   });
 
@@ -549,6 +890,7 @@
           <select id="manualStatus" class="bg-zinc-800 border border-zinc-700 px-3 py-2 text-xs text-zinc-300">
             ${Object.entries(STATUS_LABELS).filter(([k]) => k).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}
           </select>
+          <input id="manualTags" type="text" placeholder="Etiketler (Örn: Bilim Kurgu, Favoriler)" class="bg-zinc-800 border border-zinc-700 px-3 py-2 text-xs text-zinc-200 outline-none" />
           <textarea id="manualNote" placeholder="Özet / Kişisel Not (isteğe bağlı)" rows="2" class="bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white placeholder:text-zinc-500 outline-none resize-none"></textarea>
           <button id="manualSubmit" class="bg-zinc-100 text-zinc-900 px-4 py-2 text-xs font-semibold uppercase tracking-wider hover:bg-white transition">Kaydet</button>
         </div>
@@ -631,7 +973,7 @@
             if (result.already_exists) {
               toast("Bu kayıt zaten mevcut", "info");
             } else {
-              toast(`"${result.title || "Kayıt"}" Türkçe özetle eklendi!`);
+              toast(`"${result.title || "Kayıt"}" otomatik etiketlerle eklendi!`);
             }
             hideModal(addModal);
             fetchRecords();
@@ -693,7 +1035,7 @@
             if (result.already_exists) {
               toast("Bu kayıt zaten mevcut", "info");
             } else {
-              toast(`"${result.title || "Kayıt"}" eklendi!`);
+              toast(`"${result.title || "Kayıt"}" otomatik etiketlerle eklendi!`);
             }
             hideModal(addModal);
             fetchRecords();
@@ -712,6 +1054,8 @@
   async function submitManual() {
     const title = $("manualTitle")?.value.trim();
     if (!title) { toast("Başlık zorunludur", "error"); return; }
+    const tagsVal = $("manualTags")?.value.trim() || "";
+    const tagsArr = tagsVal ? tagsVal.split(",").map(t => t.trim()).filter(Boolean) : null;
     const body = {
       title,
       media_type: $("manualType")?.value || "movie",
@@ -719,6 +1063,7 @@
       release_year: $("manualYear")?.value ? parseInt($("manualYear").value) : null,
       rating: $("manualRating")?.value ? parseInt($("manualRating").value) : null,
       status: $("manualStatus")?.value || "planned",
+      tags: tagsArr,
       note: $("manualNote")?.value.trim() || null,
     };
     try {
@@ -802,7 +1147,7 @@
   prevButton?.addEventListener("click", () => { if (state.offset > 0) { state.offset = Math.max(0, state.offset - state.limit); fetchRecords(); } });
   nextButton?.addEventListener("click", () => { if (state.offset + state.limit < state.total) { state.offset += state.limit; fetchRecords(); } });
 
-  [detailModal, addModal, trailerModal, importExportModal].forEach((m) => {
+  [detailModal, addModal, rouletteModal, trailerModal, importExportModal].forEach((m) => {
     if (!m) return;
     m.addEventListener("click", (e) => {
       if (e.target === m) {
@@ -813,7 +1158,7 @@
   });
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
-      [detailModal, addModal, trailerModal, importExportModal].forEach((m) => {
+      [detailModal, addModal, rouletteModal, trailerModal, importExportModal].forEach((m) => {
         if (m && !m.classList.contains("hidden")) {
           if (m === trailerModal && trailerIframe) trailerIframe.src = "";
           hideModal(m);
@@ -821,6 +1166,11 @@
       });
     }
   });
+
+  // Check initial hash/path
+  if (window.location.hash === "#analytics" || window.location.pathname === "/stats" || window.location.pathname === "/analytics") {
+    switchView("stats");
+  }
 
   // ── Init ───────────────────────────────────────────────
   initTheme();

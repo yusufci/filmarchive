@@ -171,6 +171,25 @@ def get_imdb_details(imdb_id: str, media_type: str = "movie") -> dict[str, Any]:
     }
 
 
+def get_random_imdb_top() -> dict[str, Any] | None:
+    """Get a random classic / top movie from IMDb."""
+    import random
+    top_queries = [
+        "godfather", "shawshank", "dark_knight", "pulp_fiction", "inception",
+        "matrix", "interstellar", "fight_club", "spirited_away", "se7en",
+        "forrest_gump", "goodfellas", "gladiator", "oppenheimer", "blade_runner",
+        "alien", "psycho", "casablanca", "whiplash", "parasite", "spider_man"
+    ]
+    query = random.choice(top_queries)
+    results = search_imdb(query)
+    if results:
+        best = results[0]
+        # Fetch metadata
+        details = get_imdb_details(best["imdb_id"], best["media_type"])
+        return details if details else best
+    return None
+
+
 def download_poster(image_url: str, dest: Path, overwrite: bool = False) -> bool:
     """Download a poster image from a direct URL to a local destination."""
     if not image_url:

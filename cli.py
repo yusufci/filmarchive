@@ -232,6 +232,19 @@ def add_media(
     trailer_key: str | None = None,
 ) -> int:
     """Insert a new media record and return its generated ID."""
+    # Auto-generate tags from genres and flags if not explicitly provided
+    if not tags:
+        tag_list = []
+        if genres:
+            try:
+                tag_list = json.loads(genres) if genres.startswith("[") else [g.strip() for g in genres.split(",") if g.strip()]
+            except Exception:
+                tag_list = [g.strip() for g in genres.split(",") if g.strip()]
+        if is_anime and "Anime" not in tag_list:
+            tag_list.append("Anime")
+        if tag_list:
+            tags = json.dumps(tag_list, ensure_ascii=False)
+
     cur = conn.execute(
         """
         INSERT INTO media (title, media_type, is_anime, status, release_year, rating, note,
@@ -364,7 +377,16 @@ def get_advanced_stats(conn: sqlite3.Connection) -> dict[str, Any]:
             name = d.strip()
             if name:
                 director_counts[name] = director_counts.get(name, 0) + 1
-    top_directors = sorted(director_counts.items(), key=lambda x: x[1], reverse=True)[:6]
+    top_directors = sorted(director_counts.items(), key=lambda x: x[1], reverse=True)[:8]
+
+    # Top Cast
+    cast_counts: dict[str, int] = {}
+    for row in conn.execute("SELECT cast_members FROM media WHERE cast_members IS NOT NULL AND cast_members != ''"):
+        for c in row[0].split(","):
+            name = c.strip()
+            if name:
+                cast_counts[name] = cast_counts.get(name, 0) + 1
+    top_cast = sorted(cast_counts.items(), key=lambda x: x[1], reverse=True)[:8]
 
     # Top Genres
     genre_counts: dict[str, int] = {}
@@ -377,7 +399,15 @@ def get_advanced_stats(conn: sqlite3.Connection) -> dict[str, Any]:
         for g in glist:
             if g:
                 genre_counts[g] = genre_counts.get(g, 0) + 1
-    top_genres = sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)[:8]
+    top_genres = sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+
+    # Decade breakdown
+    decade_counts: dict[str, int] = {}
+    for row in conn.execute("SELECT release_year FROM media WHERE release_year IS NOT NULL"):
+        year = int(row[0])
+        decade = f"{(year // 10) * 10}'ler"
+        decade_counts[decade] = decade_counts.get(decade, 0) + 1
+    sorted_decades = sorted(decade_counts.items(), key=lambda x: x[0], reverse=True)
 
     # Distinct Tags
     tags_set: set[str] = set()
@@ -391,6 +421,80 @@ def get_advanced_stats(conn: sqlite3.Connection) -> dict[str, Any]:
             if t:
                 tags_set.add(t)
 
+    # Total media counts for rates
+    total_records = conn.execute("SELECT COUNT(*) FROM media").fetchone()[0] or 0
+    completed_records = conn.execute("SELECT COUNT(*) FROM media WHERE status = 'completed'").fetchone()[0] or 0
+    in_progress_records = conn.execute("SELECT COUNT(*) FROM media WHERE status = 'in_progress'").fetchone()[0] or 0
+    planned_records = conn.execute("SELECT COUNT(*) FROM media WHERE status = 'planned'").fetchone()[0] or 0
+
+    movie_count = conn.execute("SELECT COUNT(*) FROM media WHERE media_type = 'movie'").fetchone()[0] or 0
+    series_count = conn.execute("SELECT COUNT(*) FROM media WHERE media_type = 'series'").fetchone()[0] or 0
+    anime_count = conn.execute("SELECT COUNT(*) FROM media WHERE is_anime = 1").fetchone()[0] or 0
+
+    completion_rate = round((completed_records / total_records * 100), 1) if total_records > 0 else 0.0
+
+    # Last 30 days (1 Month) analytics
+    last_30_days_rows = conn.execute(
+        """
+        SELECT id, title, release_year, rating, imdb_rating, tmdb_rating, poster_path, media_type, is_anime, runtime, updated_at, genres
+        FROM media
+        WHERE (status = 'completed' OR status = 'in_progress')
+          AND (updated_at >= datetime('now', '-30 days') OR created_at >= datetime('now', '-30 days'))
+        ORDER BY updated_at DESC
+        """
+    ).fetchall()
+
+    last_30_items = [dict(r) for r in last_30_days_rows]
+    last_30_movies = len(last_30_items)
+    last_30_minutes = sum(r.get("runtime") or 110 for r in last_30_items)
+    last_30_hours = round(last_30_minutes / 60, 1)
+
+    # Runtime analytics
+    runtime_stats = conn.execute(
+        """
+        SELECT AVG(runtime), MAX(runtime), MIN(runtime)
+        FROM media
+        WHERE media_type = 'movie' AND runtime IS NOT NULL AND runtime > 0
+        """
+    ).fetchone()
+    avg_runtime = round(runtime_stats[0], 0) if runtime_stats and runtime_stats[0] else 115
+    max_runtime = runtime_stats[1] if runtime_stats and runtime_stats[1] else None
+    min_runtime = runtime_stats[2] if runtime_stats and runtime_stats[2] else None
+
+    longest_movie = None
+    if max_runtime:
+        l_row = conn.execute("SELECT title, runtime FROM media WHERE runtime = ? LIMIT 1", (max_runtime,)).fetchone()
+        if l_row:
+            longest_movie = {"title": l_row[0], "runtime": l_row[1]}
+
+    shortest_movie = None
+    if min_runtime:
+        s_row = conn.execute("SELECT title, runtime FROM media WHERE runtime = ? LIMIT 1", (min_runtime,)).fetchone()
+        if s_row:
+            shortest_movie = {"title": s_row[0], "runtime": s_row[1]}
+
+    # Genre total sum for percentage calculation
+    total_genre_occurrences = sum(genre_counts.values()) or 1
+    genre_percentages = [
+        {"name": g, "count": cnt, "percent": round((cnt / total_genre_occurrences) * 100, 1)}
+        for g, cnt in top_genres
+    ]
+
+    # Rating tiers percentages
+    tier_9_10 = conn.execute("SELECT COUNT(*) FROM media WHERE rating IN (9, 10)").fetchone()[0] or 0
+    tier_7_8 = conn.execute("SELECT COUNT(*) FROM media WHERE rating IN (7, 8)").fetchone()[0] or 0
+    tier_5_6 = conn.execute("SELECT COUNT(*) FROM media WHERE rating IN (5, 6)").fetchone()[0] or 0
+    tier_1_4 = conn.execute("SELECT COUNT(*) FROM media WHERE rating IN (1, 2, 3, 4)").fetchone()[0] or 0
+    rated_total = tier_9_10 + tier_7_8 + tier_5_6 + tier_1_4
+
+    rating_tiers = {
+        "masterpiece": {"count": tier_9_10, "percent": round((tier_9_10 / rated_total * 100), 1) if rated_total else 0},
+        "great": {"count": tier_7_8, "percent": round((tier_7_8 / rated_total * 100), 1) if rated_total else 0},
+        "average": {"count": tier_5_6, "percent": round((tier_5_6 / rated_total * 100), 1) if rated_total else 0},
+        "low": {"count": tier_1_4, "percent": round((tier_1_4 / rated_total * 100), 1) if rated_total else 0},
+        "rated_total": rated_total,
+    }
+
     return {
         "watch_time": {
             "total_minutes": total_minutes,
@@ -399,8 +503,36 @@ def get_advanced_stats(conn: sqlite3.Connection) -> dict[str, Any]:
             "movie_hours": round(movie_minutes / 60, 1),
             "series_hours": round(series_minutes / 60, 1),
         },
+        "last_30_days": {
+            "count": last_30_movies,
+            "hours": last_30_hours,
+            "minutes": last_30_minutes,
+            "items": last_30_items,
+        },
+        "rates": {
+            "completion_rate": completion_rate,
+            "movie_percent": round((movie_count / total_records * 100), 1) if total_records else 0,
+            "series_percent": round((series_count / total_records * 100), 1) if total_records else 0,
+            "anime_percent": round((anime_count / total_records * 100), 1) if total_records else 0,
+            "movie_count": movie_count,
+            "series_count": series_count,
+            "anime_count": anime_count,
+            "total_records": total_records,
+            "completed_records": completed_records,
+            "in_progress_records": in_progress_records,
+            "planned_records": planned_records,
+        },
+        "runtime_analysis": {
+            "avg_movie_runtime": avg_runtime,
+            "longest_movie": longest_movie,
+            "shortest_movie": shortest_movie,
+        },
+        "rating_tiers": rating_tiers,
         "top_directors": [{"name": d[0], "count": d[1]} for d in top_directors],
-        "top_genres": [{"name": g[0], "count": g[1]} for g in top_genres],
+        "top_cast": [{"name": c[0], "count": c[1]} for c in top_cast],
+        "top_genres": genre_percentages,
+        "decades": [{"decade": dec[0], "count": dec[1]} for dec in sorted_decades],
+        "top_rated": top_rated,
         "tags": sorted(tags_set),
     }
 
