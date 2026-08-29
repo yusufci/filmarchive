@@ -158,8 +158,17 @@
     galleryView?.classList.toggle("hidden", !isGallery);
     statsView?.classList.toggle("hidden", isGallery);
 
-    navGalleryBtn.className = `px-3 py-1 text-xs font-bold uppercase tracking-wider transition ${isGallery ? "bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950" : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white"}`;
-    navStatsBtn.className = `px-3 py-1 text-xs font-bold uppercase tracking-wider transition ${!isGallery ? "bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950" : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white"}`;
+    if (navGalleryBtn) navGalleryBtn.className = `px-3 py-1 text-xs font-bold uppercase tracking-wider transition ${isGallery ? "bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950" : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white"}`;
+    if (navStatsBtn) navStatsBtn.className = `px-3 py-1 text-xs font-bold uppercase tracking-wider transition ${!isGallery ? "bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950" : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white"}`;
+
+    const mobGal = $("mobileNavGallery");
+    const mobStat = $("mobileNavStats");
+    if (mobGal) {
+      mobGal.className = `flex flex-col items-center justify-center h-full transition active:scale-95 ${isGallery ? "text-zinc-950 dark:text-white font-bold" : "text-zinc-500 dark:text-zinc-400 font-normal"}`;
+    }
+    if (mobStat) {
+      mobStat.className = `flex flex-col items-center justify-center h-full transition active:scale-95 ${!isGallery ? "text-zinc-950 dark:text-white font-bold" : "text-zinc-500 dark:text-zinc-400 font-normal"}`;
+    }
 
     if (!isGallery) {
       renderStatsPage();
@@ -209,6 +218,8 @@
   function applyTheme(isDark) {
     document.documentElement.classList.toggle("dark", isDark);
     if (themeToggle) themeToggle.textContent = isDark ? "🌙" : "☀️";
+    const mobTheme = $("mobileThemeToggle");
+    if (mobTheme) mobTheme.textContent = isDark ? "🌙" : "☀️";
     localStorage.setItem("theme", isDark ? "dark" : "light");
   }
 
@@ -309,31 +320,6 @@
     renderStatusTabs(data.status_counts || {});
     renderTags(data.stats?.tags || []);
 
-    // Render Top 4 Showcase
-    const top4Sec = $("top4ShowcaseSection");
-    const top4List = $("top4ShowcaseList");
-    const topRated = data.stats?.top_rated || [];
-    if (top4Sec && top4List) {
-      if (topRated.length >= 2) {
-        top4Sec.classList.remove("hidden");
-        top4List.innerHTML = topRated.slice(0, 4).map(it => {
-          const posterSrc = it.poster_path ? (it.poster_path.startsWith("/") ? `/static/posters/${it.id}.jpg` : it.poster_path) : null;
-          return `
-            <div class="poster-card cursor-pointer group" onclick="window.__openDetail(${it.id})" title="${it.title}">
-              ${posterSrc ? `<img src="${posterSrc}" alt="${it.title}" loading="lazy" class="w-full aspect-[2/3] object-cover" />` : `<div class="w-full aspect-[2/3] bg-zinc-800 p-2 text-[10px] text-white flex items-center justify-center text-center">${it.title}</div>`}
-              <div class="poster-overlay">
-                <p class="text-xs font-bold truncate leading-tight">${it.title}</p>
-                <div class="flex items-center justify-between text-[10px] mt-1 text-zinc-300">
-                  <span>${it.release_year || "—"}</span>
-                  <span class="mono font-bold text-amber-400">★ ${it.rating || it.imdb_rating}</span>
-                </div>
-              </div>
-            </div>`;
-        }).join("");
-      } else {
-        top4Sec.classList.add("hidden");
-      }
-    }
   }
 
   // ── Render Full Analytics Page ─────────────────────────
@@ -1252,18 +1238,18 @@
       }
 
       modalContent.innerHTML = `
-        <div class="flex gap-5">
-          ${posterSrc ? `<div class="hidden sm:block shrink-0 w-36"><img src="${posterSrc}" alt="" class="w-full shadow-lg" /></div>` : ""}
+        <div class="flex flex-col sm:flex-row gap-3 sm:gap-5">
+          ${posterSrc ? `<div class="shrink-0 flex sm:block items-center justify-center"><img src="${posterSrc}" alt="${rec.title}" class="w-24 sm:w-36 aspect-[2/3] object-cover shadow-lg border border-zinc-700" /></div>` : ""}
           <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2 mb-1 flex-wrap">
+            <div class="flex items-center gap-1.5 sm:gap-2 mb-1 flex-wrap">
               <span class="text-[10px] font-bold uppercase px-2 py-0.5 bg-zinc-800 text-zinc-300">${typeName}</span>
               <span class="text-[10px] font-bold uppercase px-2 py-0.5 ${statusColor}">${statusBadge}</span>
               ${genres.map(g => `<span class="text-[10px] px-1.5 py-0.5 bg-zinc-800/60 text-zinc-400">${g}</span>`).join("")}
             </div>
-            <h2 class="text-xl font-bold text-white">${rec.title}</h2>
+            <h2 class="text-lg sm:text-xl font-bold text-white leading-tight">${rec.title}</h2>
             ${rec.original_title && rec.original_title !== rec.title ? `<p class="text-xs text-zinc-500 mt-0.5">${rec.original_title}</p>` : ""}
-            <div class="mt-3 flex items-center gap-3 text-xs text-zinc-400 flex-wrap">
-              <span class="mono text-lg font-bold text-amber-400">★ ${rec.rating || "-"}<span class="text-zinc-600 text-xs"> / 10</span></span>
+            <div class="mt-2.5 flex items-center gap-2 sm:gap-3 text-xs text-zinc-400 flex-wrap">
+              <span class="mono text-base sm:text-lg font-bold text-amber-400">★ ${rec.rating || "-"}<span class="text-zinc-600 text-xs"> / 10</span></span>
               ${rec.imdb_rating ? `<span class="bg-amber-400 text-zinc-950 px-1.5 py-0.5 text-[10px] font-bold">IMDb ${Number(rec.imdb_rating).toFixed(1)}</span>` : ""}
               ${rec.tmdb_rating ? `<span class="bg-zinc-800 text-zinc-300 px-1.5 py-0.5 text-[10px] font-bold">TMDB ${Number(rec.tmdb_rating).toFixed(1)}</span>` : ""}
               ${rec.imdb_id ? `<a href="https://www.imdb.com/title/${rec.imdb_id}/" target="_blank" class="text-amber-400 hover:underline text-[11px]">IMDb ↗</a>` : ""}
@@ -1273,33 +1259,33 @@
             ${rec.director ? `<div class="mt-2 text-xs text-zinc-400"><span class="text-zinc-500 font-medium">Yönetmen:</span> ${rec.director.split(",").map(d => `<button class="person-filter-btn text-amber-400 hover:underline hover:text-amber-300 font-semibold mr-1" data-person="${d.trim()}">${d.trim()}</button>`).join(", ")}</div>` : ""}
             ${rec.cast_members ? `<div class="mt-1 text-xs text-zinc-400"><span class="text-zinc-500 font-medium">Oyuncular:</span> ${rec.cast_members.split(",").map(c => `<button class="person-filter-btn text-zinc-300 hover:underline hover:text-white mr-1" data-person="${c.trim()}">${c.trim()}</button>`).join(", ")}</div>` : ""}
             <!-- Trailer, Ticket & Soundtrack Buttons -->
-            <div class="mt-3 flex items-center gap-2 flex-wrap">
-              <button id="openTrailerBtn" class="border border-red-600/80 bg-red-600/20 text-red-300 hover:bg-red-600 hover:text-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition">
-                ▶ Fragmanı İzle
+            <div class="mt-3 grid grid-cols-2 sm:flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <button id="openTrailerBtn" class="border border-red-600/80 bg-red-600/20 text-red-300 hover:bg-red-600 hover:text-white px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition text-center">
+                ▶ Fragman
               </button>
-              <button id="openTicketBtn" class="border border-amber-500/80 bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-zinc-950 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition">
-                🎟️ Sinema Bileti
+              <button id="openTicketBtn" class="border border-amber-500/80 bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-zinc-950 px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition text-center">
+                🎟️ Bilet
               </button>
-              <a href="https://open.spotify.com/search/${encodeURIComponent(rec.title + ' soundtrack')}" target="_blank" class="border border-emerald-500/80 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-zinc-950 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition inline-flex items-center gap-1">
+              <a href="https://open.spotify.com/search/${encodeURIComponent(rec.title + ' soundtrack')}" target="_blank" class="border border-emerald-500/80 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-zinc-950 px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition inline-flex items-center justify-center gap-1">
                 🎵 Spotify ↗
               </a>
-              <a href="https://music.youtube.com/search?q=${encodeURIComponent(rec.title + ' soundtrack')}" target="_blank" class="border border-red-500/80 bg-red-500/20 text-red-300 hover:bg-red-500 hover:text-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition inline-flex items-center gap-1">
+              <a href="https://music.youtube.com/search?q=${encodeURIComponent(rec.title + ' soundtrack')}" target="_blank" class="border border-red-500/80 bg-red-500/20 text-red-300 hover:bg-red-500 hover:text-white px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition inline-flex items-center justify-center gap-1">
                 🔴 YT Music ↗
               </a>
             </div>
           </div>
         </div>
-        ${rec.overview ? `<div class="mt-4"><h4 class="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1">Özet</h4><p class="text-sm text-zinc-300 leading-relaxed bg-zinc-800/30 p-3">${rec.overview}</p></div>` : ""}
+        ${rec.overview ? `<div class="mt-3 sm:mt-4"><h4 class="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1">Özet</h4><p class="text-xs sm:text-sm text-zinc-300 leading-relaxed bg-zinc-800/30 p-2.5 sm:p-3">${rec.overview}</p></div>` : ""}
         <!-- Tags input -->
         <div class="mt-3">
           <label class="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1 block">Özel Etiketler (Virgülle ayırın)</label>
-          <input id="modalTagsInput" type="text" value="${tags.join(", ")}" placeholder="Örn: Favoriler, Oscar, Nolan, Maraton" class="w-full bg-zinc-800 border border-zinc-700 px-3 py-1.5 text-xs text-zinc-200 outline-none" />
+          <input id="modalTagsInput" type="text" value="${tags.join(", ")}" placeholder="Örn: Favoriler, Oscar, Nolan, Maraton" class="w-full bg-zinc-800 border border-zinc-700 px-3 py-2 text-xs text-zinc-200 outline-none focus:border-zinc-500" />
         </div>
 
         <!-- Note / Quote Input -->
         <div class="mt-3">
           <label class="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1 block">💬 Unutulmaz Replik / Kişisel Not</label>
-          <textarea id="modalNoteInput" rows="2" placeholder="Örn: “Sevgi, zaman ve mekânı aşan tek şeydir.” — Brand" class="w-full bg-zinc-800 border border-zinc-700 px-3 py-1.5 text-xs text-zinc-200 outline-none">${rec.note || ""}</textarea>
+          <textarea id="modalNoteInput" rows="2" placeholder="Örn: “Sevgi, zaman ve mekânı aşan tek şeydir.” — Brand" class="w-full bg-zinc-800 border border-zinc-700 px-3 py-2 text-xs text-zinc-200 outline-none focus:border-zinc-500">${rec.note || ""}</textarea>
         </div>
         
         <!-- Star Rating Widget -->
@@ -1308,9 +1294,9 @@
             <span class="text-xs font-bold uppercase tracking-wider text-zinc-400">Puan Ver</span>
             <span id="starRatingLabel" class="mono text-xs font-bold text-amber-400">${rec.rating ? `★ ${rec.rating} / 10` : "Puanlanmadı"}</span>
           </div>
-          <div id="starRatingContainer" class="flex gap-1">
+          <div id="starRatingContainer" class="flex gap-1 overflow-x-auto pb-1 thin-scrollbar">
             ${[1,2,3,4,5,6,7,8,9,10].map(n => `
-              <button type="button" class="star-btn flex-1 py-1 text-sm font-bold transition text-center ${rec.rating && rec.rating >= n ? "text-amber-400 bg-amber-950/40 border border-amber-600/50" : "text-zinc-600 bg-zinc-800/60 hover:text-amber-300"}" data-rating="${n}">★</button>
+              <button type="button" class="star-btn flex-1 min-w-[28px] h-9 sm:h-8 text-sm sm:text-base font-bold transition flex items-center justify-center ${rec.rating && rec.rating >= n ? "text-amber-400 bg-amber-950/40 border border-amber-600/50" : "text-zinc-600 bg-zinc-800/60 hover:text-amber-300"}" data-rating="${n}">★</button>
             `).join("")}
           </div>
         </div>
@@ -1319,7 +1305,7 @@
         <div class="mt-3 grid grid-cols-2 gap-2">
           <div>
             <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1 block">İzleme Tarihi</label>
-            <input id="modalWatchedAtInput" type="date" value="${rec.watched_at || ""}" class="w-full bg-zinc-800 border border-zinc-700 px-2 py-1 text-xs text-zinc-200 outline-none" />
+            <input id="modalWatchedAtInput" type="date" value="${rec.watched_at || ""}" class="w-full bg-zinc-800 border border-zinc-700 px-2 py-1.5 text-xs text-zinc-200 outline-none focus:border-zinc-500" />
           </div>
           <div class="flex flex-col justify-end">
             <button id="modalRewatchBtn" type="button" class="bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 px-2 py-1.5 text-xs font-semibold uppercase tracking-wider transition text-center" title="İzleme sayısını artır">
@@ -1329,12 +1315,12 @@
         </div>
 
         ${seasonsHtml}
-        <div class="mt-5 pt-4 border-t border-zinc-800 flex flex-wrap items-center gap-2">
-          <select id="modalStatusSelect" class="bg-zinc-800 border border-zinc-700 text-zinc-200 px-2 py-1.5 text-xs">
+        <div class="mt-5 pt-4 border-t border-zinc-800 flex items-center gap-2">
+          <select id="modalStatusSelect" class="flex-1 bg-zinc-800 border border-zinc-700 text-zinc-200 px-3 py-2 text-xs">
             ${Object.entries(STATUS_LABELS).filter(([k]) => k).map(([k, v]) => `<option value="${k}" ${rec.status === k ? "selected" : ""}>${v}</option>`).join("")}
           </select>
-          <button id="modalSaveBtn" class="bg-zinc-100 text-zinc-900 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider hover:bg-white transition">Kaydet</button>
-          <button id="modalDeleteBtn" class="bg-red-900/60 text-red-200 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider hover:bg-red-800 transition ml-auto">Sil</button>
+          <button id="modalSaveBtn" class="bg-zinc-100 text-zinc-900 px-4 py-2 text-xs font-bold uppercase tracking-wider hover:bg-white transition">Kaydet</button>
+          <button id="modalDeleteBtn" class="bg-red-900/60 text-red-200 px-3 py-2 text-xs font-bold uppercase tracking-wider hover:bg-red-800 transition ml-auto">Sil</button>
         </div>
         <div class="mt-3 flex items-center justify-between text-[10px] text-zinc-600">
           <span>ID: #${rec.id} | Eklenme: ${rec.created_at || "—"}</span>
@@ -1627,7 +1613,7 @@
       </div>
       <div id="imdbPanel">
         <div class="mb-3">
-          <input id="imdbSearchInput" type="text" placeholder="IMDb'de film veya dizi ara (örn: The Dark Knight, Fight Club)..." class="w-full bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white placeholder:text-zinc-500 outline-none focus:border-zinc-500" autofocus />
+          <input id="imdbSearchInput" type="text" placeholder="IMDb'de film veya dizi ara (örn: The Dark Knight, Fight Club)..." class="w-full bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white placeholder:text-zinc-500 outline-none focus:border-zinc-500" />
         </div>
         <div id="imdbResults" class="max-h-80 overflow-y-auto thin-scrollbar space-y-2"></div>
       </div>
@@ -1671,6 +1657,7 @@
       </div>`;
 
     showModal(addModal);
+    setTimeout(() => $("imdbSearchInput")?.focus(), 60);
 
     const activateTab = (activeName) => {
       $("imdbPanel").classList.toggle("hidden", activeName !== "imdb");
@@ -2490,7 +2477,107 @@
   const closePersonBtn = $("closePersonBtn");
   closePersonBtn?.addEventListener("click", () => hideModal(personModal));
 
-  [detailModal, addModal, rouletteModal, trailerModal, importExportModal, ticketModal, personModal, marathonModal, shortcutsModal, ambientModal, compareModal].forEach((m) => {
+  // ── Mobile Controls & Bottom Navigation Listeners ─────
+  const mobileNavGallery = $("mobileNavGallery");
+  const mobileNavSearch = $("mobileNavSearch");
+  const mobileNavAdd = $("mobileNavAdd");
+  const mobileHeaderAddBtn = $("mobileHeaderAddBtn");
+  const mobileNavStats = $("mobileNavStats");
+  const mobileNavTools = $("mobileNavTools");
+  const openMobileToolsTopBtn = $("openMobileToolsTopBtn");
+  const mobileToolsModal = $("mobileToolsModal");
+  const closeMobileToolsBtn = $("closeMobileToolsBtn");
+  const mobileRefreshBtn = $("mobileRefreshBtn");
+  const mobileThemeToggle = $("mobileThemeToggle");
+  const mobileFilterToggleBtn = $("mobileFilterToggleBtn");
+  const mobileFilterToggleIcon = $("mobileFilterToggleIcon");
+  const sidebarAside = $("sidebarAside");
+
+  mobileNavGallery?.addEventListener("click", () => {
+    switchView("gallery");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  mobileNavSearch?.addEventListener("click", () => {
+    switchView("gallery");
+    if (sidebarAside && sidebarAside.classList.contains("mobile-hidden")) {
+      sidebarAside.classList.remove("mobile-hidden");
+      if (mobileFilterToggleIcon) mobileFilterToggleIcon.textContent = "▲ Gizle";
+    }
+    const searchInput = $("searchInput");
+    if (searchInput) {
+      searchInput.focus();
+      searchInput.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  });
+
+  mobileNavAdd?.addEventListener("click", openAddModal);
+  mobileHeaderAddBtn?.addEventListener("click", openAddModal);
+
+  mobileNavStats?.addEventListener("click", () => {
+    switchView("stats");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  const openMobileTools = () => {
+    if (mobileToolsModal) showModal(mobileToolsModal);
+  };
+  mobileNavTools?.addEventListener("click", openMobileTools);
+  openMobileToolsTopBtn?.addEventListener("click", openMobileTools);
+  closeMobileToolsBtn?.addEventListener("click", () => {
+    if (mobileToolsModal) hideModal(mobileToolsModal);
+  });
+
+  // Mobile tools sheet items
+  $("mobileToolRoulette")?.addEventListener("click", () => {
+    if (mobileToolsModal) hideModal(mobileToolsModal);
+    openRouletteModal();
+  });
+  $("mobileToolMarathon")?.addEventListener("click", () => {
+    if (mobileToolsModal) hideModal(mobileToolsModal);
+    showModal(marathonModal);
+    generateMarathon(marathonSelectedHours);
+  });
+  $("mobileToolAmbient")?.addEventListener("click", () => {
+    if (mobileToolsModal) hideModal(mobileToolsModal);
+    openAmbientMode(0);
+  });
+  $("mobileToolCompare")?.addEventListener("click", () => {
+    if (mobileToolsModal) hideModal(mobileToolsModal);
+    openCompareModal();
+  });
+  $("mobileToolImportExport")?.addEventListener("click", () => {
+    if (mobileToolsModal) hideModal(mobileToolsModal);
+    openImportExportModal();
+  });
+  $("mobileToolShortcuts")?.addEventListener("click", () => {
+    if (mobileToolsModal) hideModal(mobileToolsModal);
+    showModal(shortcutsModal);
+  });
+
+  mobileRefreshBtn?.addEventListener("click", () => {
+    fetchRecords();
+    fetchSummary();
+    toast("Arşiv verileri güncellendi");
+  });
+
+  mobileThemeToggle?.addEventListener("click", () => {
+    const isDark = document.documentElement.classList.contains("dark");
+    applyTheme(!isDark);
+  });
+
+  mobileFilterToggleBtn?.addEventListener("click", () => {
+    if (!sidebarAside) return;
+    const isHidden = sidebarAside.classList.contains("mobile-hidden");
+    sidebarAside.classList.toggle("mobile-hidden", !isHidden);
+    if (mobileFilterToggleIcon) {
+      mobileFilterToggleIcon.textContent = isHidden ? "▲ Gizle" : "▼ Göster";
+    }
+  });
+
+  const allModals = [detailModal, addModal, rouletteModal, trailerModal, importExportModal, ticketModal, personModal, marathonModal, shortcutsModal, ambientModal, compareModal, mobileToolsModal];
+
+  allModals.forEach((m) => {
     if (!m) return;
     m.addEventListener("click", (e) => {
       if (e.target === m) {
@@ -2501,7 +2588,7 @@
   });
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
-      [detailModal, addModal, rouletteModal, trailerModal, importExportModal, ticketModal, personModal, marathonModal, shortcutsModal, ambientModal, compareModal].forEach((m) => {
+      allModals.forEach((m) => {
         if (m && !m.classList.contains("hidden")) {
           if (m === trailerModal && trailerIframe) trailerIframe.src = "";
           hideModal(m);

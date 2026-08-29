@@ -1,9 +1,9 @@
 services:
   gallery:
     build: .
-    container_name: media-tracker
+    container_name: filmarchive
     ports:
-      - "8766:8766"
+      - "127.0.0.1:8766:8766"
     volumes:
       - ./data:/app/data
       - ./static/posters:/app/static/posters
@@ -11,3 +11,4 @@ services:
       - TMDB_API_KEY=${TMDB_API_KEY:-}
       - TMDB_READ_ACCESS_TOKEN=${TMDB_READ_ACCESS_TOKEN:-}
     restart: unless-stopped
+

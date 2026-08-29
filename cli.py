@@ -35,6 +35,9 @@ def make_db_path(path_str: str | None = None) -> Path:
     """Return the resolved Path to the SQLite database."""
     if path_str:
         return Path(path_str).resolve()
+    data_db = ROOT / "data" / "media.sqlite"
+    if data_db.is_file():
+        return data_db
     return DEFAULT_DB_FILE
 
 

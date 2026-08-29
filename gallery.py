@@ -368,27 +368,38 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
             self.send_response(status.value)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
-            self.send_header("Cache-Control", "no-store")
+            if extra_headers and "Cache-Control" in extra_headers:
+                self.send_header("Cache-Control", extra_headers["Cache-Control"])
+            else:
+                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Access-Control-Allow-Origin", "*")
             if extra_headers:
                 for k, v in extra_headers.items():
-                    self.send_header(k, v)
+                    if k != "Cache-Control":
+                        self.send_header(k, v)
             self.end_headers()
-            self.wfile.write(body)
+            if self.command != "HEAD":
+                self.wfile.write(body)
 
         def send_json(self, status: HTTPStatus, payload: Any) -> None:
             self.send_bytes(status, json_bytes(payload), "application/json; charset=utf-8")
 
-        def send_file(self, status: HTTPStatus, path: Path) -> None:
-            self.send_bytes(status, path.read_bytes(), file_content_type(path))
+        def send_file(self, status: HTTPStatus, path: Path, max_age: int | None = None) -> None:
+            extra_headers = {}
+            if max_age is not None:
+                extra_headers["Cache-Control"] = f"public, max-age={max_age}, immutable" if max_age > 86400 else f"public, max-age={max_age}"
+            self.send_bytes(status, path.read_bytes(), file_content_type(path), extra_headers=extra_headers if extra_headers else None)
 
         def do_OPTIONS(self) -> None:  # noqa: N802
             self.send_response(204)
             self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+            self.send_header("Access-Control-Allow-Methods", "GET, HEAD, POST, PUT, DELETE, OPTIONS")
             self.send_header("Access-Control-Allow-Headers", "Content-Type")
             self.end_headers()
+
+        def do_HEAD(self) -> None:  # noqa: N802
+            self.do_GET()
 
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
@@ -405,14 +416,16 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                 if not logo.is_file():
                     self.send_json(HTTPStatus.NOT_FOUND, {"error": "Dosya bulunamadı."})
                     return
-                self.send_file(HTTPStatus.OK, logo)
+                self.send_file(HTTPStatus.OK, logo, max_age=604800)
                 return
             if parsed.path.startswith(STATIC_URL_PREFIX):
                 asset = static_file_path(parsed.path)
                 if asset is None:
                     self.send_json(HTTPStatus.NOT_FOUND, {"error": "Dosya bulunamadı."})
                     return
-                self.send_file(HTTPStatus.OK, asset)
+                # Posters can be cached longer (7 days), other static assets 1 day
+                is_poster = parsed.path.startswith(POSTERS_URL_PREFIX)
+                self.send_file(HTTPStatus.OK, asset, max_age=604800 if is_poster else 86400)
                 return
             if parsed.path == "/api/records":
                 try:
