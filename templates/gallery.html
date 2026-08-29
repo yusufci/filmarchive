@@ -140,8 +140,8 @@
               <h1 class="text-base sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-white truncate">Media Tracker</h1>
               <!-- Nav Tabs -->
               <nav class="hidden sm:flex items-center gap-1 border border-zinc-300 dark:border-zinc-700 p-0.5 bg-zinc-100 dark:bg-zinc-800">
-                <button id="navGalleryBtn" class="px-3 py-1 text-xs font-bold uppercase tracking-wider bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 transition">🎬 Galeri</button>
-                <button id="navStatsBtn" class="px-3 py-1 text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition">📊 Analitik & İstatistikler</button>
+                <button id="navGalleryBtn" class="px-3 py-1 text-xs font-bold uppercase tracking-wider bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 transition">Galeri</button>
+                <button id="navStatsBtn" class="px-3 py-1 text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition">Analitik & İstatistikler</button>
               </nav>
             </div>
             <p id="dbLine" class="hidden md:block mt-0.5 max-w-2xl truncate text-xs text-zinc-500 dark:text-zinc-400">Veritabanı yükleniyor…</p>
@@ -151,28 +151,16 @@
         <!-- Desktop Action Buttons -->
         <div class="desktop-header-actions flex-wrap items-center gap-2">
           <!-- Roulette Button -->
-          <button id="rouletteButton" title="Rastgele film veya dizi öner (R)" class="border border-purple-700 bg-purple-700 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white transition hover:bg-purple-600 active:translate-y-px">
-            🎲 Ne İzlesem?
-          </button>
           <!-- Marathon Planner Button -->
-          <button id="marathonButton" title="Özel film maratonu ve seans planla (M)" class="border border-amber-600 bg-amber-600 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white transition hover:bg-amber-500 active:translate-y-px">
-            🍿 Maraton
-          </button>
           <!-- Ambient Cinema Mode Button -->
-          <button id="ambientBtn" title="Sinematik Ambiyans Modu (F)" class="border border-indigo-700 bg-indigo-700 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white transition hover:bg-indigo-600 active:translate-y-px">
-            📽️ Ambiyans
-          </button>
           <!-- Compare Movies Button -->
-          <button id="compareBtn" title="İki Yapımı Karşılaştır (C)" class="border border-cyan-800 bg-cyan-800 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white transition hover:bg-cyan-700 active:translate-y-px">
-            ⚖️ Kıyasla
-          </button>
           <!-- Add Button -->
           <button id="addButton" class="border border-emerald-700 bg-emerald-700 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white transition hover:bg-emerald-600 active:translate-y-px">
             + Film / Dizi Ekle
           </button>
           <!-- Import/Export Button -->
           <button id="importExportBtn" class="border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-800 dark:text-zinc-200 transition hover:border-zinc-950 dark:hover:border-zinc-500 active:translate-y-px">
-            📥 İçe / Dışa Aktar
+            İçe / Dışa Aktar
           </button>
           <!-- Refresh -->
           <button id="refreshButton" class="border border-zinc-950 dark:border-zinc-700 bg-zinc-950 dark:bg-zinc-800 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white transition hover:bg-zinc-800 dark:hover:bg-zinc-700 active:translate-y-px">
@@ -180,11 +168,11 @@
           </button>
           <!-- Keyboard Shortcuts Info -->
           <button id="shortcutsBtn" title="Klavye Kısayolları (?)" class="border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2.5 py-2 text-xs font-semibold text-zinc-800 dark:text-zinc-200 transition hover:border-zinc-950 dark:hover:border-zinc-500">
-            ⌨️
+            
           </button>
           <!-- Dark Mode Toggle -->
           <button id="themeToggle" title="Temayı değiştir (T)" class="border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2.5 py-2 text-xs font-semibold text-zinc-800 dark:text-zinc-200 transition hover:border-zinc-950 dark:hover:border-zinc-500">
-            🌙
+            
           </button>
         </div>
 
@@ -194,15 +182,12 @@
             <span>+ Ekle</span>
           </button>
           <button id="mobileRefreshBtn" class="border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-xs text-zinc-700 dark:text-zinc-300 active:scale-95" title="Yenile">
-            🔄
+            
           </button>
           <button id="mobileThemeToggle" class="border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-xs text-zinc-700 dark:text-zinc-300 active:scale-95" title="Tema Değiştir">
-            🌙
+            
           </button>
-          <button id="openMobileToolsTopBtn" class="border border-purple-700 bg-purple-700/20 text-purple-400 p-1.5 text-xs font-bold active:scale-95" title="Hızlı Araçlar Menüsü">
-            ⚡
-          </button>
-        </div>
+          </div>
       </div>
     </div>
   </header>
@@ -252,7 +237,7 @@
       <!-- Mobile Filter Accordion Toggle Button -->
       <button id="mobileFilterToggleBtn" class="mobile-filter-accordion items-center justify-between w-full p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mt-4 shadow-sm active:bg-zinc-100 dark:active:bg-zinc-800 transition">
         <span class="flex items-center gap-2">
-          <span>📊</span>
+          <span></span>
           <span>Puan Grafiği & Detaylı Filtreler</span>
         </span>
         <span id="mobileFilterToggleIcon" class="text-zinc-400 font-mono text-[11px]">▼ Göster</span>
@@ -319,18 +304,18 @@
             <div class="mt-3 flex items-center gap-1.5 overflow-x-auto pb-1.5 thin-scrollbar text-xs whitespace-nowrap -mx-1 px-1">
               <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 shrink-0 mr-1">FİLTRE:</span>
               <button data-filter="all" class="quick-filter-btn shrink-0 h-7 px-3 text-xs font-semibold bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 transition border border-transparent">Tümü</button>
-              <button data-filter="favorites" class="quick-filter-btn shrink-0 h-7 px-3 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition border border-zinc-200 dark:border-zinc-700/60">❤️ Favoriler</button>
-              <button data-filter="top_rated" class="quick-filter-btn shrink-0 h-7 px-3 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition border border-zinc-200 dark:border-zinc-700/60">★ 8+ Başyapıt</button>
-              <button data-filter="planned" class="quick-filter-btn shrink-0 h-7 px-3 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition border border-zinc-200 dark:border-zinc-700/60">⏳ İzlenecekler</button>
-              <button data-filter="completed" class="quick-filter-btn shrink-0 h-7 px-3 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition border border-zinc-200 dark:border-zinc-700/60">✓ İzlenenler</button>
+              <button data-filter="favorites" class="quick-filter-btn shrink-0 h-7 px-3 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition border border-zinc-200 dark:border-zinc-700/60">Favoriler</button>
+              <button data-filter="top_rated" class="quick-filter-btn shrink-0 h-7 px-3 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition border border-zinc-200 dark:border-zinc-700/60">8+ Başyapıt</button>
+              <button data-filter="planned" class="quick-filter-btn shrink-0 h-7 px-3 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition border border-zinc-200 dark:border-zinc-700/60">İzlenecekler</button>
+              <button data-filter="completed" class="quick-filter-btn shrink-0 h-7 px-3 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition border border-zinc-200 dark:border-zinc-700/60">İzlenenler</button>
               
               <span class="text-zinc-400 dark:text-zinc-600 mx-1 shrink-0">|</span>
               
               <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 shrink-0">RUH HALİ:</span>
-              <button data-mood="bilim kurgu" class="mood-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">🧠 Zihin Açıcı</button>
-              <button data-mood="macera" class="mood-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">🚀 Uzay &amp; Keşif</button>
-              <button data-mood="gerilim" class="mood-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">🕯️ Gerilim</button>
-              <button data-mood="aksiyon" class="mood-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">⚡ Adrenalin</button>
+              <button data-mood="bilim kurgu" class="mood-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">Zihin Açıcı</button>
+              <button data-mood="macera" class="mood-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">Uzay &amp; Keşif</button>
+              <button data-mood="gerilim" class="mood-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">Gerilim</button>
+              <button data-mood="aksiyon" class="mood-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">Adrenalin</button>
               
               <span class="text-zinc-400 dark:text-zinc-600 mx-1 shrink-0">|</span>
               
@@ -340,15 +325,15 @@
               <button data-decade="2010s" class="decade-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">2010'lar</button>
               <button data-decade="2000s" class="decade-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">2000'ler</button>
               <button data-decade="1990s" class="decade-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">1990'lar</button>
-              <button data-decade="classics" class="decade-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">🏛️ Klasikler</button>
+              <button data-decade="classics" class="decade-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">Klasikler</button>
               
               <span class="text-zinc-400 dark:text-zinc-600 mx-1 shrink-0">|</span>
               
               <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 shrink-0">PUAN:</span>
-              <button data-rating-filter="10" class="rating-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">★ 10</button>
-              <button data-rating-filter="9" class="rating-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">★ 9+</button>
-              <button data-rating-filter="8" class="rating-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">★ 8+</button>
-              <button data-rating-filter="7" class="rating-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">★ 7+</button>
+              <button data-rating-filter="10" class="rating-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">10</button>
+              <button data-rating-filter="9" class="rating-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">9+</button>
+              <button data-rating-filter="8" class="rating-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">8+</button>
+              <button data-rating-filter="7" class="rating-filter-btn shrink-0 h-7 px-2.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition">7+</button>
             </div>
 
             <!-- Active Filter Badges Bar -->
@@ -363,8 +348,8 @@
                 <p id="resultLine" aria-live="polite" class="text-xs font-medium text-zinc-600 dark:text-zinc-400 shrink-0">0 kayıt</p>
                 <!-- View Mode Switcher -->
                 <div class="flex items-center border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 p-0.5">
-                  <button id="viewGridBtn" class="px-2 py-0.5 text-[11px] font-bold uppercase bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 transition" title="Izgara Afiş Görünümü">🖼️ Izgara</button>
-                  <button id="viewTableBtn" class="px-2 py-0.5 text-[11px] font-bold uppercase text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition" title="Kompakt Liste / Tablo Görünümü">📋 Tablo</button>
+                  <button id="viewGridBtn" class="px-2 py-0.5 text-[11px] font-bold uppercase bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 transition" title="Izgara Afiş Görünümü">Izgara</button>
+                  <button id="viewTableBtn" class="px-2 py-0.5 text-[11px] font-bold uppercase text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition" title="Kompakt Liste / Tablo Görünümü">Tablo</button>
                 </div>
                 <!-- Poster Grid Density Switcher -->
                 <div id="densitySwitcherWrap" class="flex items-center border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 p-0.5">
@@ -386,7 +371,7 @@
           <div id="upNextSection" class="p-3 sm:p-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/90 text-zinc-900 dark:text-white hidden">
             <div class="flex items-center justify-between mb-2">
               <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                <span>📌</span> SIRADAKİ İZLENECEK YAPIM
+                <span></span> SIRADAKİ İZLENECEK YAPIM
               </span>
               <span class="text-[10px] text-zinc-500 dark:text-zinc-400">İzleme Listenin Zirvesi</span>
             </div>
@@ -444,7 +429,7 @@
           </div>
           <div class="flex items-center gap-2">
             <button id="copyReportBtn" class="border border-purple-700 bg-purple-700 hover:bg-purple-600 px-3.5 py-2 text-xs font-semibold uppercase tracking-wider text-white transition active:translate-y-px" title="İzleme raporunu panoya kopyala">
-              📋 Raporu Kopyala
+              Raporu Kopyala
             </button>
             <button id="backToGalleryBtn" class="border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-900 dark:text-zinc-100 hover:border-zinc-950 dark:hover:border-zinc-500 transition">
               ← Galeriye Dön
@@ -456,7 +441,7 @@
         <div class="mt-6 p-5 border border-purple-800/40 bg-purple-950/20">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
-              <span class="text-xs font-bold uppercase tracking-wider text-purple-400">📅 Son 30 Günlük Performans (1 Ay)</span>
+              <span class="text-xs font-bold uppercase tracking-wider text-purple-400">Son 30 Günlük Performans (1 Ay)</span>
               <h3 class="text-base font-bold text-white mt-0.5">Bu Ay Neler İzledin?</h3>
             </div>
             <div class="flex items-center gap-4">
@@ -478,7 +463,7 @@
           <!-- Monthly Goal Tracker -->
           <div class="mt-4 pt-3 border-t border-purple-800/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
             <div class="flex items-center gap-2">
-              <span class="font-bold uppercase tracking-wider text-purple-300 text-[11px]">🎯 Aylık Hedef:</span>
+              <span class="font-bold uppercase tracking-wider text-purple-300 text-[11px]">Aylık Hedef:</span>
               <span id="monthlyGoalText" class="text-zinc-300">10 filmden <b class="text-white font-bold" id="monthlyGoalDone">0</b>'ı tamamlandı</span>
               <span id="monthlyGoalBadge" class="mono text-[10px] font-bold px-1.5 py-0.5 bg-purple-900/60 border border-purple-700 text-purple-200">%0</span>
             </div>
@@ -528,7 +513,7 @@
       <section class="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-sm">
         <div class="flex items-center justify-between mb-4">
           <div>
-            <h3 class="text-sm font-bold uppercase tracking-wider text-zinc-900 dark:text-white">📅 Sinema İzleme Günlüğü</h3>
+            <h3 class="text-sm font-bold uppercase tracking-wider text-zinc-900 dark:text-white">Sinema İzleme Günlüğü</h3>
             <p class="text-xs text-zinc-500 mt-0.5">İzleme tarihi kaydedilen son yapımlar ve puanların</p>
           </div>
           <span class="text-xs font-mono font-bold text-amber-400">DIARY</span>
@@ -542,7 +527,7 @@
       <div class="grid md:grid-cols-2 gap-6">
         <!-- Format Dağılım Oranları -->
         <section class="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-sm">
-          <h3 class="text-sm font-bold uppercase tracking-wider text-zinc-900 dark:text-white mb-4">🎬 Format Oranları</h3>
+          <h3 class="text-sm font-bold uppercase tracking-wider text-zinc-900 dark:text-white mb-4">Format Oranları</h3>
           <div id="formatDistributionBar" class="h-4 w-full flex bg-zinc-800 overflow-hidden mb-4">
             <div id="barMovie" class="bg-blue-600 h-full transition-all duration-500" style="width: 0%" title="Film"></div>
             <div id="barSeries" class="bg-purple-600 h-full transition-all duration-500" style="width: 0%" title="Dizi"></div>
@@ -569,7 +554,7 @@
 
         <!-- Puanlama Seviyeleri (Rating Tiers) -->
         <section class="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-sm">
-          <h3 class="text-sm font-bold uppercase tracking-wider text-zinc-900 dark:text-white mb-4">⭐ Puanlama Dağılım Oranları</h3>
+          <h3 class="text-sm font-bold uppercase tracking-wider text-zinc-900 dark:text-white mb-4">Puanlama Dağılım Oranları</h3>
           <div id="ratingTiersList" class="space-y-3">
             <!-- Dynamic rating tiers -->
           </div>
@@ -580,7 +565,7 @@
       <section class="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-sm">
         <div class="flex items-center justify-between mb-4">
           <div>
-            <h3 class="text-sm font-bold uppercase tracking-wider text-zinc-900 dark:text-white">📅 Yıllık İzleme Aktivite Matrisi</h3>
+            <h3 class="text-sm font-bold uppercase tracking-wider text-zinc-900 dark:text-white">Yıllık İzleme Aktivite Matrisi</h3>
             <p class="text-xs text-zinc-500 mt-0.5">Aylara göre izlenen film ve dizi yoğunluğu</p>
           </div>
           <span class="text-xs mono font-bold text-indigo-400">12 Aylık Takvim</span>
@@ -595,7 +580,7 @@
         <!-- Genres Breakdown with exact % -->
         <section class="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-sm">
           <div class="flex items-center justify-between mb-4">
-            <h3 class="text-sm font-bold uppercase tracking-wider text-zinc-900 dark:text-white">🎭 Tür Dağılımı & Oranları</h3>
+            <h3 class="text-sm font-bold uppercase tracking-wider text-zinc-900 dark:text-white">Tür Dağılımı & Oranları</h3>
             <span class="text-xs text-zinc-500">Tüm arşive göre %</span>
           </div>
           <div id="statsGenresList" class="space-y-3">
@@ -605,7 +590,7 @@
 
         <!-- Top Directors -->
         <section class="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-sm">
-          <h3 class="text-sm font-bold uppercase tracking-wider text-zinc-900 dark:text-white mb-4">🎬 En Çok İzlenen Yönetmenler</h3>
+          <h3 class="text-sm font-bold uppercase tracking-wider text-zinc-900 dark:text-white mb-4">En Çok İzlenen Yönetmenler</h3>
           <div id="statsDirectorsList" class="space-y-3">
             <p class="text-xs text-zinc-500">Yükleniyor…</p>
           </div>
@@ -624,7 +609,7 @@
 
         <!-- Decades Breakdown -->
         <section class="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-sm">
-          <h3 class="text-sm font-bold uppercase tracking-wider text-zinc-900 dark:text-white mb-4">📅 Yıllara Göre Dağılım</h3>
+          <h3 class="text-sm font-bold uppercase tracking-wider text-zinc-900 dark:text-white mb-4">Yıllara Göre Dağılım</h3>
           <div id="statsDecadesList" class="space-y-3">
             <p class="text-xs text-zinc-500">Yükleniyor…</p>
           </div>
@@ -633,7 +618,7 @@
 
       <!-- 7. Top Rated Favorites -->
       <section class="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-sm">
-        <h3 class="text-sm font-bold uppercase tracking-wider text-zinc-900 dark:text-white mb-4">⭐ En Yüksek Puanlı Başyapıtlar</h3>
+        <h3 class="text-sm font-bold uppercase tracking-wider text-zinc-900 dark:text-white mb-4">En Yüksek Puanlı Başyapıtlar</h3>
         <div id="statsTopRatedList" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3"></div>
       </section>
 
@@ -641,7 +626,7 @@
       <section class="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-sm">
         <div class="flex items-center justify-between mb-4">
           <div>
-            <h3 class="text-sm font-bold uppercase tracking-wider text-zinc-900 dark:text-white">🏆 Sinema Başarımları & Rozetler</h3>
+            <h3 class="text-sm font-bold uppercase tracking-wider text-zinc-900 dark:text-white">Sinema Başarımları & Rozetler</h3>
             <p class="text-xs text-zinc-500 mt-0.5">İzleme ve arşivleme performansınıza göre açılan özel sinema rozetleri</p>
           </div>
           <span class="text-xs font-mono font-bold text-amber-500" id="unlockedBadgesCount">0 / 5 Açıldı</span>
@@ -655,9 +640,9 @@
       <section class="border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 p-6 shadow-sm">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-400">🛠️ Sistem & Veritabanı Durumu</h3>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-400">Sistem & Veritabanı Durumu</h3>
             <div class="mt-2 flex items-center gap-4 text-xs text-zinc-600 dark:text-zinc-300 flex-wrap">
-              <span>SQLite Durumu: <b class="text-emerald-500 font-bold" id="sysIntegrity">OK ✓</b></span>
+              <span>SQLite Durumu: <b class="text-emerald-500 font-bold" id="sysIntegrity">OK </b></span>
               <span>Veritabanı Boyutu: <b class="mono" id="sysDbSize">0 KB</b></span>
               <span>Afiş Önbelleği: <b class="mono" id="sysPosterSize">0 MB (0 afiş)</b></span>
               <span>Şema: <b class="mono" id="sysSchema">v6</b></span>
@@ -665,10 +650,10 @@
           </div>
           <div class="flex items-center gap-2">
             <button id="optimizeDbBtn" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 px-3 py-2 text-xs font-bold uppercase tracking-wider transition">
-              🧹 Optimize Et
+              Optimize Et
             </button>
             <a href="/api/export?format=json" download class="bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 px-4 py-2 text-xs font-bold uppercase tracking-wider hover:bg-zinc-800 dark:hover:bg-white transition">
-              💾 Hızlı JSON Yedeği İndir
+              Hızlı JSON Yedeği İndir
             </a>
           </div>
         </div>
@@ -715,31 +700,7 @@
   </div>
 
   <!-- Roulette "Ne İzlesem?" Discovery Modal -->
-  <div id="rouletteModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 p-4 backdrop-blur-xs">
-    <div class="relative w-full max-w-lg border border-zinc-700 bg-zinc-900 text-white shadow-2xl p-6">
-      <div class="flex items-center justify-between mb-4 pb-2 border-b border-zinc-800">
-        <h3 class="text-base font-bold flex items-center gap-2">🎲 Ne İzlesem? — Rastgele Öneri</h3>
-        <button id="closeRouletteModal" class="text-zinc-400 hover:text-white text-xl font-bold p-1">&times;</button>
-      </div>
-      <!-- Source Options Tabs -->
-      <div class="flex gap-1.5 mb-4">
-        <button id="rouletteSourceTmdb" class="flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wider bg-zinc-100 text-zinc-900 transition">🍿 TMDB Trend (TR)</button>
-        <button id="rouletteSourceImdb" class="flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wider bg-zinc-800 text-zinc-400 transition">🌟 IMDb Top</button>
-        <button id="rouletteSourceArchive" class="flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wider bg-zinc-800 text-zinc-400 transition">📂 Arşivimden</button>
-      </div>
-      <div id="rouletteCard" class="min-h-[200px] flex items-center justify-center">
-        <!-- Dynamic Result Card -->
-      </div>
-      <div class="mt-4 pt-3 border-t border-zinc-800 flex justify-between gap-2">
-        <button id="spinAgainBtn" class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 py-2 text-xs font-semibold uppercase tracking-wider transition">
-          🔄 Başka Öner
-        </button>
-        <button id="rouletteActionBtn" class="flex-1 bg-emerald-700 hover:bg-emerald-600 text-white py-2 text-xs font-semibold uppercase tracking-wider transition">
-          + Arşive Ekle
-        </button>
-      </div>
-    </div>
-  </div>
+  
 
   <!-- Trailer Player Modal -->
   <div id="trailerModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/85 p-4 backdrop-blur-sm">
@@ -755,52 +716,7 @@
   </div>
 
   <!-- Retro Cinema Ticket Modal -->
-  <div id="ticketModal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-black/85 p-4 backdrop-blur-sm">
-    <div class="relative w-full max-w-sm border border-amber-500/30 bg-zinc-950 text-white shadow-2xl p-6 overflow-hidden font-sans">
-      <button id="closeTicketBtn" class="absolute top-3 right-3 text-zinc-400 hover:text-white text-xl font-bold p-1">&times;</button>
-      
-      <!-- Ticket Stub Design -->
-      <div id="ticketStub" class="border-2 border-dashed border-amber-500/40 bg-zinc-900/90 p-5 relative">
-        <div class="flex items-center justify-between border-b border-amber-500/30 pb-2 mb-3">
-          <span class="text-[10px] font-mono uppercase tracking-widest text-amber-400 font-bold">★ ADMIT ONE ★</span>
-          <span class="text-[9px] font-mono text-zinc-400" id="ticketNo">№ MT-2026</span>
-        </div>
-        
-        <h3 id="ticketTitle" class="text-lg font-bold text-white leading-tight">Film Başlığı</h3>
-        <p id="ticketSubtitle" class="text-xs text-zinc-400 mt-0.5">Yıl • Tür</p>
-        
-        <div class="my-4 py-3 border-y border-zinc-800 grid grid-cols-2 gap-2 text-xs">
-          <div>
-            <span class="text-[9px] uppercase tracking-wider text-zinc-500 block">Puan</span>
-            <span id="ticketRating" class="mono font-bold text-amber-400 text-sm">★ 10 / 10</span>
-          </div>
-          <div>
-            <span class="text-[9px] uppercase tracking-wider text-zinc-500 block">İzleme Tarihi</span>
-            <span id="ticketDate" class="mono font-bold text-zinc-200 text-sm">23.08.2026</span>
-          </div>
-          <div>
-            <span class="text-[9px] uppercase tracking-wider text-zinc-500 block">Yönetmen</span>
-            <span id="ticketDirector" class="font-medium text-zinc-300 truncate block">Christopher Nolan</span>
-          </div>
-          <div>
-            <span class="text-[9px] uppercase tracking-wider text-zinc-500 block">Format</span>
-            <span id="ticketFormat" class="font-medium text-zinc-300">Film</span>
-          </div>
-        </div>
-
-        <div class="flex items-center justify-between pt-1">
-          <div class="mono text-[8px] text-zinc-500 font-mono tracking-widest">||| | |||| || | ||| ||||</div>
-          <span class="text-[9px] font-mono font-bold text-zinc-400">MEDIA TRACKER</span>
-        </div>
-      </div>
-
-      <div class="mt-4 flex gap-2">
-        <button id="copyTicketTextBtn" class="flex-1 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold py-2 text-xs uppercase tracking-wider transition">
-          📋 Metni Kopyala
-        </button>
-      </div>
-    </div>
-  </div>
+  
 
   <!-- Person Filmography Modal -->
   <div id="personModal" class="fixed inset-0 z-[65] hidden items-center justify-center bg-black/85 p-4 backdrop-blur-sm">
@@ -823,112 +739,20 @@
   </div>
 
   <!-- Marathon Planner Modal -->
-  <div id="marathonModal" class="fixed inset-0 z-[65] hidden items-center justify-center bg-black/85 p-4 backdrop-blur-sm">
-    <div class="relative w-full max-w-xl border border-amber-600/50 bg-zinc-900 text-white shadow-2xl p-6">
-      <button id="closeMarathonBtn" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-xl font-bold p-1 z-10">&times;</button>
-      <div class="flex items-center gap-2 mb-3">
-        <span class="text-xl">🍿</span>
-        <h2 class="text-base font-bold text-white uppercase tracking-wider">Film Maratonu & Seans Planlayıcı</h2>
-      </div>
-      <p class="text-xs text-zinc-400 mb-4">Bu akşam film izlemek için ne kadar vaktin var? Sistem izleme listendeki en uyumlu yapımlardan dakikası dakikasına bir maraton seansı hazırlasın.</p>
-      
-      <!-- Duration Buttons -->
-      <div class="flex gap-2 mb-4">
-        <button class="marathon-time-btn flex-1 py-2 text-xs font-bold uppercase bg-amber-500 text-zinc-950 transition" data-hours="2">⏱️ 2 Saat</button>
-        <button class="marathon-time-btn flex-1 py-2 text-xs font-bold uppercase bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition" data-hours="4">⏱️ 4 Saat</button>
-        <button class="marathon-time-btn flex-1 py-2 text-xs font-bold uppercase bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition" data-hours="6">🌙 Tüm Gece (6+ S)</button>
-      </div>
-
-      <!-- Timeline Result Container -->
-      <div id="marathonResult" class="space-y-3 p-4 bg-zinc-950/60 border border-zinc-800">
-        <!-- Dynamic Schedule Timeline -->
-      </div>
-
-      <div class="mt-4 pt-3 border-t border-zinc-800 flex justify-between gap-2">
-        <button id="marathonRerollBtn" class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 py-2 text-xs font-semibold uppercase tracking-wider transition">
-          🔄 Başka Seans Oluştur
-        </button>
-      </div>
-    </div>
-  </div>
+  
 
   <!-- Fullscreen Ambient Cinema Mode Modal -->
-  <div id="ambientModal" class="fixed inset-0 z-[80] hidden items-center justify-center bg-black/95 text-white backdrop-blur-md select-none">
-    <button id="closeAmbientBtn" class="absolute top-6 right-8 text-zinc-400 hover:text-white text-3xl font-bold p-2 z-20" title="Ambiyans Modundan Çık (Esc / F)">&times;</button>
-    
-    <!-- Ambient Glow Background -->
-    <div id="ambientGlow" class="absolute inset-0 bg-cover bg-center opacity-20 filter blur-3xl scale-125 pointer-events-none transition-all duration-700"></div>
-
-    <!-- Center Cinema Showcase Card -->
-    <div class="relative z-10 w-full max-w-4xl px-6 flex flex-col md:flex-row items-center gap-8">
-      <div id="ambientPosterWrap" class="w-64 md:w-80 aspect-[2/3] shrink-0 overflow-hidden shadow-2xl border border-zinc-700 bg-zinc-900 transition-transform duration-500 hover:scale-105">
-        <img id="ambientPoster" src="" alt="" class="w-full h-full object-cover" />
-      </div>
-      <div class="flex-1 text-left min-w-0">
-        <div class="flex items-center gap-2 mb-2">
-          <span id="ambientType" class="text-[10px] font-bold uppercase px-2 py-0.5 bg-zinc-800 text-zinc-300">Film</span>
-          <span id="ambientYear" class="mono text-xs text-zinc-400">2026</span>
-          <span id="ambientRating" class="mono text-sm font-bold text-amber-400">★ 10/10</span>
-        </div>
-        <h1 id="ambientTitle" class="text-3xl sm:text-4xl font-black text-white leading-tight mb-3 drop-shadow-md">Film Adı</h1>
-        <p id="ambientOverview" class="text-sm text-zinc-300 leading-relaxed line-clamp-4 bg-black/40 p-4 border border-zinc-800/80 mb-6 backdrop-blur-xs">Özet...</p>
-        
-        <div class="flex items-center gap-3 flex-wrap">
-          <button id="ambientTrailerBtn" class="bg-red-600 hover:bg-red-500 text-white px-4 py-2 text-xs font-bold uppercase tracking-wider transition flex items-center gap-1.5 shadow-lg">
-            ▶ Fragmanı Başlat
-          </button>
-          <a id="ambientOstLink" href="#" target="_blank" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 text-xs font-bold uppercase tracking-wider transition flex items-center gap-1.5 shadow-lg">
-            🎵 Film Müzikleri ↗
-          </a>
-          <button id="ambientDetailBtn" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-4 py-2 text-xs font-bold uppercase tracking-wider transition border border-zinc-700">
-            Detay Penceresi ↗
-          </button>
-        </div>
-
-        <div class="mt-8 flex items-center justify-between border-t border-zinc-800/80 pt-4 text-xs text-zinc-500">
-          <button id="ambientPrevBtn" class="hover:text-white transition flex items-center gap-1 font-bold">← Önceki Film (Sol Ok)</button>
-          <span id="ambientIndex" class="mono text-zinc-400">1 / 1</span>
-          <button id="ambientNextBtn" class="hover:text-white transition flex items-center gap-1 font-bold">Sonraki Film (Sağ Ok) →</button>
-        </div>
-      </div>
-    </div>
-  </div>
+  
 
   <!-- Compare Movies Modal -->
-  <div id="compareModal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-black/85 p-4 backdrop-blur-sm">
-    <div class="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto thin-scrollbar border border-cyan-800/80 bg-zinc-900 text-white shadow-2xl p-6">
-      <button id="closeCompareBtn" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-xl font-bold p-1 z-10">&times;</button>
-      <div class="flex items-center gap-2 mb-4">
-        <span class="text-xl">⚖️</span>
-        <h2 class="text-base font-bold text-white uppercase tracking-wider">İki Yapımı Karşılaştır</h2>
-      </div>
-
-      <!-- Selectors Row -->
-      <div class="grid sm:grid-cols-2 gap-4 mb-6">
-        <div>
-          <label class="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">1. Yapımı Seç</label>
-          <select id="compareSelect1" class="w-full bg-zinc-800 border border-zinc-700 text-white text-xs px-3 py-2 outline-none"></select>
-        </div>
-        <div>
-          <label class="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">2. Yapımı Seç</label>
-          <select id="compareSelect2" class="w-full bg-zinc-800 border border-zinc-700 text-white text-xs px-3 py-2 outline-none"></select>
-        </div>
-      </div>
-
-      <!-- Side-by-Side Comparison Container -->
-      <div id="compareContainer" class="grid sm:grid-cols-2 gap-6 divide-y sm:divide-y-0 sm:divide-x divide-zinc-800">
-        <div id="compareSide1" class="space-y-4"></div>
-        <div id="compareSide2" class="space-y-4 pt-4 sm:pt-0 sm:pl-6"></div>
-      </div>
-    </div>
-  </div>
+  
 
   <!-- Keyboard Shortcuts Cheat Sheet Modal -->
   <div id="shortcutsModal" class="fixed inset-0 z-[65] hidden items-center justify-center bg-black/85 p-4 backdrop-blur-sm">
     <div class="relative w-full max-w-md border border-zinc-700 bg-zinc-900 text-white shadow-2xl p-6">
       <button id="closeShortcutsBtn" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-xl font-bold p-1 z-10">&times;</button>
       <div class="flex items-center gap-2 mb-4">
-        <span class="text-xl">⌨️</span>
+        <span class="text-xl"></span>
         <h2 class="text-base font-bold text-white uppercase tracking-wider">Klavye Kısayolları</h2>
       </div>
       
@@ -1003,7 +827,7 @@
   <nav class="fixed bottom-0 left-0 right-0 z-40 lg:hidden border-t border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md pb-safe shadow-2xl">
     <div class="grid grid-cols-5 h-14 items-center max-w-lg mx-auto">
       <button id="mobileNavGallery" class="flex flex-col items-center justify-center h-full text-zinc-950 dark:text-white transition active:scale-95">
-        <span class="text-base">🎬</span>
+        <span class="text-base"></span>
         <span class="text-[10px] font-bold mt-0.5">Galeri</span>
       </button>
       <button id="mobileNavSearch" class="flex flex-col items-center justify-center h-full text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition active:scale-95">
@@ -1017,72 +841,14 @@
         <span class="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">Ekle</span>
       </button>
       <button id="mobileNavStats" class="flex flex-col items-center justify-center h-full text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition active:scale-95">
-        <span class="text-base">📊</span>
+        <span class="text-base"></span>
         <span class="text-[10px] font-bold mt-0.5">Analitik</span>
       </button>
-      <button id="mobileNavTools" class="flex flex-col items-center justify-center h-full text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition active:scale-95">
-        <span class="text-base">⚡</span>
-        <span class="text-[10px] font-bold mt-0.5">Araçlar</span>
-      </button>
-    </div>
+      </div>
   </nav>
 
   <!-- Mobile Quick Tools Sheet Modal -->
-  <div id="mobileToolsModal" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4">
-    <div class="relative w-full max-w-lg bg-zinc-900 border-t sm:border border-zinc-700 p-5 text-white shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
-      <div class="flex items-center justify-between pb-3 border-b border-zinc-800">
-        <div class="flex items-center gap-2">
-          <span class="text-lg">⚡</span>
-          <h3 class="text-sm font-bold uppercase tracking-wider">Hızlı Araçlar & İşlemler</h3>
-        </div>
-        <button id="closeMobileToolsBtn" class="text-zinc-400 hover:text-white text-2xl font-bold p-1">&times;</button>
-      </div>
-      <div class="grid grid-cols-2 gap-2.5 text-xs font-semibold">
-        <button id="mobileToolRoulette" class="flex items-center gap-2.5 p-3 bg-purple-950/60 border border-purple-800/60 hover:bg-purple-900/60 transition text-purple-200 active:scale-95">
-          <span class="text-lg">🎲</span>
-          <div class="text-left">
-            <span class="block text-white font-bold">Ne İzlesem?</span>
-            <span class="text-[10px] text-zinc-400 font-normal">Rastgele Öneri</span>
-          </div>
-        </button>
-        <button id="mobileToolMarathon" class="flex items-center gap-2.5 p-3 bg-amber-950/60 border border-amber-800/60 hover:bg-amber-900/60 transition text-amber-200 active:scale-95">
-          <span class="text-lg">🍿</span>
-          <div class="text-left">
-            <span class="block text-white font-bold">Maraton</span>
-            <span class="text-[10px] text-zinc-400 font-normal">Seans Planla</span>
-          </div>
-        </button>
-        <button id="mobileToolAmbient" class="flex items-center gap-2.5 p-3 bg-indigo-950/60 border border-indigo-800/60 hover:bg-indigo-900/60 transition text-indigo-200 active:scale-95">
-          <span class="text-lg">📽️</span>
-          <div class="text-left">
-            <span class="block text-white font-bold">Ambiyans</span>
-            <span class="text-[10px] text-zinc-400 font-normal">Sinematik Mod</span>
-          </div>
-        </button>
-        <button id="mobileToolCompare" class="flex items-center gap-2.5 p-3 bg-cyan-950/60 border border-cyan-800/60 hover:bg-cyan-900/60 transition text-cyan-200 active:scale-95">
-          <span class="text-lg">⚖️</span>
-          <div class="text-left">
-            <span class="block text-white font-bold">Kıyasla</span>
-            <span class="text-[10px] text-zinc-400 font-normal">2 Yapımı Karşılaştır</span>
-          </div>
-        </button>
-        <button id="mobileToolImportExport" class="flex items-center gap-2.5 p-3 bg-zinc-800/80 border border-zinc-700 hover:bg-zinc-700 transition text-zinc-200 active:scale-95">
-          <span class="text-lg">📥</span>
-          <div class="text-left">
-            <span class="block text-white font-bold">Yedek & CSV</span>
-            <span class="text-[10px] text-zinc-400 font-normal">İçe / Dışa Aktar</span>
-          </div>
-        </button>
-        <button id="mobileToolShortcuts" class="flex items-center gap-2.5 p-3 bg-zinc-800/80 border border-zinc-700 hover:bg-zinc-700 transition text-zinc-200 active:scale-95">
-          <span class="text-lg">⌨️</span>
-          <div class="text-left">
-            <span class="block text-white font-bold">Kısayollar</span>
-            <span class="text-[10px] text-zinc-400 font-normal">Klavye Tuşları</span>
-          </div>
-        </button>
-      </div>
-    </div>
-  </div>
+  
 
   <script src="/static/gallery.js"></script>
 </body>

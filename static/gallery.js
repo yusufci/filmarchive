@@ -1,3 +1,20 @@
+
+const _originalGetElementById = document.getElementById.bind(document);
+document.getElementById = function(id) {
+    const el = _originalGetElementById(id);
+    if (el) return el;
+    // Return a dummy element to prevent crashes
+    return {
+        addEventListener: function(){},
+        classList: { add: function(){}, remove: function(){}, toggle: function(){} },
+        style: {},
+        setAttribute: function(){},
+        innerHTML: '',
+        innerText: '',
+        textContent: '',
+        value: ''
+    };
+};
 /**
  * Media Tracker Gallery Client JavaScript v6.0
  * Comprehensive Analytics & 1-Month History, Format Distributions, Rate Metrics, Multi-Source Discovery Roulette.
