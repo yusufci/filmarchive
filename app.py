@@ -50,6 +50,29 @@ SCHEMA_VERSION = 6
 
 LOGGER = logging.getLogger("media_tracker")
 
+# In-memory TTL Cache for external APIs
+_API_CACHE: dict[str, tuple[float, Any]] = {}
+CACHE_TTL_SECONDS = 600.0  # 10 minutes cache
+
+def get_cached_api(key: str) -> Any | None:
+    if key in _API_CACHE:
+        ts, data = _API_CACHE[key]
+        if time.time() - ts < CACHE_TTL_SECONDS:
+            return data
+        del _API_CACHE[key]
+    return None
+
+def set_cached_api(key: str, data: Any) -> None:
+    if len(_API_CACHE) > 1000:
+        now = time.time()
+        expired = [k for k, (ts, _) in _API_CACHE.items() if now - ts >= CACHE_TTL_SECONDS]
+        for k in expired:
+            _API_CACHE.pop(k, None)
+        if len(_API_CACHE) > 1000:
+            for k in list(_API_CACHE.keys())[:200]:
+                _API_CACHE.pop(k, None)
+    _API_CACHE[key] = (time.time(), data)
+
 STATUSES = ("planned", "in_progress", "completed", "paused", "dropped")
 MEDIA_TYPES = ("movie", "series", "book")
 GALLERY_FILTERS = ("all", "movie", "anime-movie", "series", "anime-series", "anime")
@@ -152,10 +175,14 @@ def make_db_path(path_str: str | None = None) -> Path:
 
 
 def connect(db_path: Path) -> sqlite3.Connection:
-    """Establish and configure a SQLite connection."""
-    conn = sqlite3.connect(db_path)
+    """Establish and configure an optimized SQLite connection with WAL mode."""
+    conn = sqlite3.connect(db_path, timeout=30.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA synchronous = NORMAL")
+    conn.execute("PRAGMA cache_size = -64000")
+    conn.execute("PRAGMA temp_store = MEMORY")
     return conn
 
 
@@ -380,6 +407,9 @@ def add_media(
     imdb_rating: float | None = None,
     tags: str | None = None,
     trailer_key: str | None = None,
+    watched_at: str | None = None,
+    times_watched: int = 1,
+    is_favorite: int = 0,
 ) -> int:
     """Insert a new media record and return its generated ID."""
     if not tags:
@@ -398,12 +428,14 @@ def add_media(
         """
         INSERT INTO media (title, media_type, is_anime, status, release_year, rating, note,
                            tmdb_id, imdb_id, poster_path, overview, genres, original_title,
-                           director, cast_members, runtime, tmdb_rating, imdb_rating, tags, trailer_key)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                           director, cast_members, runtime, tmdb_rating, imdb_rating, tags, trailer_key,
+                           watched_at, times_watched, is_favorite)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (title.strip(), media_type, int(is_anime), status, release_year, rating, note,
          tmdb_id, imdb_id, poster_path, overview, genres, original_title,
-         director, cast_members, runtime, tmdb_rating, imdb_rating, tags, trailer_key),
+         director, cast_members, runtime, tmdb_rating, imdb_rating, tags, trailer_key,
+         watched_at, times_watched, int(is_favorite)),
     )
     conn.commit()
     return int(cur.lastrowid)
@@ -778,6 +810,127 @@ def export_records_letterboxd_csv(conn: sqlite3.Connection) -> str:
     return output.getvalue()
 
 
+def import_records_from_csv(conn: sqlite3.Connection, csv_text: str) -> dict[str, Any]:
+    """Parse Letterboxd, IMDb, or generic CSV export and import into media table."""
+    reader = csv.DictReader(io.StringIO(csv_text.strip()))
+    if not reader.fieldnames:
+        return {"imported": 0, "skipped": 0, "total": 0}
+
+    field_map = {fn.strip().lower(): fn for fn in reader.fieldnames if fn}
+
+    def get_val(row: dict[str, str], *keys: str) -> str:
+        for k in keys:
+            norm_k = k.lower()
+            if norm_k in field_map:
+                val = row.get(field_map[norm_k], "").strip()
+                if val:
+                    return val
+        return ""
+
+    imported = 0
+    skipped = 0
+    total = 0
+
+    for row in reader:
+        total += 1
+        title = get_val(row, "title", "name", "başlık", "film")
+        if not title:
+            skipped += 1
+            continue
+
+        year_str = get_val(row, "year", "release_year", "yıl")
+        year = None
+        if year_str:
+            try:
+                m = re.search(r"\b(19\d\d|20\d\d)\b", year_str)
+                if m:
+                    y = int(m.group(1))
+                    if 1800 <= y <= 2100:
+                        year = y
+            except Exception:
+                pass
+
+        rating = None
+        rating_10_str = get_val(row, "rating10", "your rating", "puan")
+        rating_5_str = get_val(row, "rating")
+        if rating_10_str:
+            try:
+                r_val = float(rating_10_str)
+                if 1 <= r_val <= 10:
+                    rating = int(round(r_val))
+            except Exception:
+                pass
+        elif rating_5_str:
+            try:
+                r_val = float(rating_5_str)
+                if 0.5 <= r_val <= 5.0:
+                    rating = int(round(r_val * 2))
+                elif 1 <= r_val <= 10:
+                    rating = int(round(r_val))
+            except Exception:
+                pass
+
+        watched_date = get_val(row, "watcheddate", "watched date", "date rated", "watched_at", "izleme tarihi")
+        if watched_date and len(watched_date) > 10:
+            watched_date = watched_date[:10]
+
+        review = get_val(row, "review", "note", "not")
+        imdb_id = get_val(row, "const", "imdb_id")
+        if imdb_id and not imdb_id.startswith("tt"):
+            imdb_id = None
+
+        m_type_raw = get_val(row, "title type", "media_type", "type", "tür").lower()
+        if "series" in m_type_raw or "tv" in m_type_raw or "dizi" in m_type_raw:
+            media_type = "series"
+        else:
+            media_type = "movie"
+
+        is_anime = 1 if "anime" in m_type_raw or get_val(row, "is_anime") in ("1", "true", "yes") else 0
+        status = "completed" if (watched_date or rating is not None) else "planned"
+        director = get_val(row, "directors", "director", "yönetmen") or None
+        genres_raw = get_val(row, "genres", "genre", "türler")
+        genres = json.dumps([g.strip() for g in genres_raw.split(",") if g.strip()], ensure_ascii=False) if genres_raw else None
+
+        existing = None
+        if imdb_id:
+            existing = conn.execute("SELECT id, rating, watched_at, note FROM media WHERE imdb_id = ?", (imdb_id,)).fetchone()
+        if not existing and title and year:
+            existing = conn.execute("SELECT id, rating, watched_at, note FROM media WHERE title = ? COLLATE NOCASE AND release_year = ?", (title, year)).fetchone()
+
+        if existing:
+            updates = {}
+            if rating is not None and existing["rating"] is None:
+                updates["rating"] = rating
+            if watched_date and not existing["watched_at"]:
+                updates["watched_at"] = watched_date
+                updates["status"] = "completed"
+            if review and not existing["note"]:
+                updates["note"] = review
+            if updates:
+                set_clause = ", ".join(f"{k} = ?" for k in updates.keys())
+                conn.execute(f"UPDATE media SET {set_clause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (*updates.values(), existing["id"]))
+            skipped += 1
+        else:
+            add_media(
+                conn,
+                title=title,
+                media_type=media_type,
+                is_anime=bool(is_anime),
+                status=status,
+                release_year=year,
+                rating=rating,
+                note=review or None,
+                imdb_id=imdb_id,
+                director=director,
+                genres=genres,
+                watched_at=watched_date or None,
+            )
+            imported += 1
+
+    conn.commit()
+    return {"imported": imported, "skipped": skipped, "total": total}
+
+
 def reset_database(db_path: Path) -> None:
     """Completely wipe and recreate the database with an empty schema."""
     if db_path.is_file():
@@ -818,7 +971,13 @@ def get_tmdb_api_key() -> str:
 
 
 def tmdb_request(path: str, params: dict[str, str] | None = None) -> dict[str, Any]:
-    """Make a GET request to the TMDB API and return parsed JSON."""
+    """Make a GET request to the TMDB API and return parsed JSON with caching."""
+    param_str = urllib.parse.urlencode(sorted((params or {}).items()))
+    cache_key = f"tmdb:{path}:{param_str}"
+    cached = get_cached_api(cache_key)
+    if cached is not None:
+        return cached
+
     api_key = get_tmdb_api_key()
     headers = {
         "Accept": "application/json",
@@ -840,6 +999,7 @@ def tmdb_request(path: str, params: dict[str, str] | None = None) -> dict[str, A
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode("utf-8"))
+        set_cached_api(cache_key, data)
         time.sleep(TMDB_REQUEST_DELAY)
         return data
     except urllib.error.HTTPError as e:
@@ -1015,6 +1175,11 @@ def imdb_search(query: str) -> list[dict[str, Any]]:
     clean_q = imdb_slugify_search(query)
     if not clean_q:
         return []
+    cache_key = f"imdb:search:{clean_q}"
+    cached = get_cached_api(cache_key)
+    if cached is not None:
+        return cached
+
     first_char = clean_q[0]
     url = f"{IMDB_SUGGESTION_URL}/{first_char}/{clean_q}.json"
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
@@ -1045,10 +1210,16 @@ def imdb_search(query: str) -> list[dict[str, Any]]:
             "poster_url": poster_url,
             "rank": item.get("rank"),
         })
+    set_cached_api(cache_key, results)
     return results
 
 
 def imdb_get_details(imdb_id: str, media_type: str = "movie") -> dict[str, Any]:
+    cache_key = f"cinemeta:{imdb_id}:{media_type}"
+    cached = get_cached_api(cache_key)
+    if cached is not None:
+        return cached
+
     cinemeta_type = "series" if media_type == "series" else "movie"
     url = f"{CINEMETA_URL}/{cinemeta_type}/{imdb_id}.json"
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
@@ -1113,7 +1284,7 @@ def imdb_get_details(imdb_id: str, media_type: str = "movie") -> dict[str, Any]:
         for sn in sorted(season_counts.keys()):
             seasons.append({"season_number": sn, "episode_count": season_counts[sn]})
 
-    return {
+    details = {
         "imdb_id": imdb_id,
         "title": meta.get("name") or meta.get("title") or "Untitled",
         "original_title": meta.get("name") or meta.get("title"),
@@ -1128,6 +1299,8 @@ def imdb_get_details(imdb_id: str, media_type: str = "movie") -> dict[str, Any]:
         "poster_url": meta.get("poster"),
         "seasons": seasons,
     }
+    set_cached_api(cache_key, details)
+    return details
 
 
 def imdb_get_random_top() -> dict[str, Any] | None:
@@ -1840,6 +2013,32 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                     })
                 except Exception as e:
                     self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": str(e)})
+                finally:
+                    conn.close()
+                return
+
+            # CSV Import Endpoint
+            if parsed.path == "/api/import/csv":
+                length = int(self.headers.get("Content-Length", 0))
+                if length == 0:
+                    self.send_json(HTTPStatus.BAD_REQUEST, {"error": "Boş CSV verisi gönderildi."})
+                    return
+                raw_bytes = self.rfile.read(length)
+                try:
+                    csv_text = raw_bytes.decode("utf-8")
+                except UnicodeDecodeError:
+                    try:
+                        csv_text = raw_bytes.decode("iso-8859-9")
+                    except Exception:
+                        csv_text = raw_bytes.decode("utf-8", errors="replace")
+
+                conn = connect(db_path)
+                try:
+                    res = import_records_from_csv(conn, csv_text)
+                    self.send_json(HTTPStatus.OK, res)
+                except Exception as e:
+                    LOGGER.exception("CSV import error")
+                    self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": f"CSV işleme hatası: {e}"})
                 finally:
                     conn.close()
                 return

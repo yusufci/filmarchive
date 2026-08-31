@@ -1520,10 +1520,11 @@ document.getElementById = function(id) {
   }
 
   // ── Multi-Source Roulette ("Ne İzlesem?") ─────────────
-  rouletteButton?.addEventListener("click", () => {
+  function openRouletteModal() {
     showModal(rouletteModal);
     spinRoulette(state.rouletteSource);
-  });
+  }
+  rouletteButton?.addEventListener("click", openRouletteModal);
   closeRouletteModal?.addEventListener("click", () => hideModal(rouletteModal));
 
   function setRouletteSourceTab(src) {
@@ -1854,7 +1855,10 @@ document.getElementById = function(id) {
   }
 
   // ── Import / Export Modal Handlers ─────────────────────
-  importExportBtn?.addEventListener("click", () => showModal(importExportModal));
+  function openImportExportModal() {
+    showModal(importExportModal);
+  }
+  importExportBtn?.addEventListener("click", openImportExportModal);
   closeImportExportBtn?.addEventListener("click", () => hideModal(importExportModal));
 
   uploadCsvBtn?.addEventListener("click", async () => {
