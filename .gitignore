@@ -30,3 +30,8 @@ Desktop.ini
 *.swp
 *.swo
 *~
+
+# Secrets
+.env
+.env.*
+!.env.example
