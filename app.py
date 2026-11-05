@@ -420,6 +420,10 @@ def add_media(
     is_favorite: int = 0,
 ) -> int:
     """Insert a new media record and return its generated ID."""
+    if isinstance(genres, list):
+        genres = json.dumps(genres, ensure_ascii=False)
+    if isinstance(cast_members, list):
+        cast_members = json.dumps(cast_members, ensure_ascii=False)
     if not tags:
         tag_list = []
         if genres:

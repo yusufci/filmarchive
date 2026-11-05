@@ -1,4 +1,5 @@
 """Vercel Serverless Function entrypoint for Media Tracker (filmarchive)."""
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 import sys
 
@@ -12,4 +13,10 @@ ensure_schema(DEFAULT_DB_FILE)
 seed_sample_data(DEFAULT_DB_FILE)
 POSTERS_DIR.mkdir(parents=True, exist_ok=True)
 
-handler = make_handler(DEFAULT_DB_FILE)
+_GalleryHandler = make_handler(DEFAULT_DB_FILE)
+
+
+class handler(_GalleryHandler, BaseHTTPRequestHandler):
+    """Vercel Python Serverless Function handler."""
+
+    pass
