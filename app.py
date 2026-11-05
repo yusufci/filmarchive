@@ -33,10 +33,15 @@ if hasattr(sys.stdout, "reconfigure"):
 
 ROOT = Path(__file__).resolve().parent
 SCHEMA_FILE = ROOT / "schema.sql"
-DEFAULT_DB_FILE = ROOT / "data" / "media.sqlite" if (ROOT / "data" / "media.sqlite").is_file() else ROOT / "media.sqlite"
+IS_SERVERLESS = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
+DEFAULT_DB_FILE = (
+    Path("/tmp/media.sqlite")
+    if IS_SERVERLESS
+    else (ROOT / "data" / "media.sqlite" if (ROOT / "data" / "media.sqlite").is_file() else ROOT / "media.sqlite")
+)
 TEMPLATE_PATH = ROOT / "templates" / "gallery.html" if (ROOT / "templates" / "gallery.html").is_file() else ROOT / "gallery.html"
 STATIC_DIR = ROOT / "static"
-POSTERS_DIR = STATIC_DIR / "posters"
+POSTERS_DIR = Path("/tmp/posters") if IS_SERVERLESS else STATIC_DIR / "posters"
 STATIC_URL_PREFIX = "/static/"
 POSTERS_URL_PREFIX = "/static/posters/"
 
@@ -165,6 +170,9 @@ def make_db_path(path_str: str | None = None) -> Path:
     """Return the resolved Path to the SQLite database."""
     if path_str:
         return Path(path_str).resolve()
+    if IS_SERVERLESS:
+        DEFAULT_DB_FILE.parent.mkdir(parents=True, exist_ok=True)
+        return DEFAULT_DB_FILE
     data_db = ROOT / "data" / "media.sqlite"
     if data_db.is_file():
         return data_db
@@ -487,7 +495,7 @@ def add_series_season(
 def import_from_imdb(conn: sqlite3.Connection, imdb_data: dict[str, Any], is_anime: bool = False) -> int:
     """Import a media record from mapped IMDb data. Returns new media ID."""
     seasons = imdb_data.pop("seasons", [])
-    imdb_data.pop("poster_url", None)
+    poster_url = imdb_data.pop("poster_url", None)
 
     media_id = add_media(
         conn,
@@ -499,6 +507,7 @@ def import_from_imdb(conn: sqlite3.Connection, imdb_data: dict[str, Any], is_ani
         rating=None,
         note=None,
         imdb_id=imdb_data.get("imdb_id"),
+        poster_path=imdb_data.get("poster_path") or poster_url,
         overview=imdb_data.get("overview"),
         genres=imdb_data.get("genres"),
         original_title=imdb_data.get("original_title"),
@@ -936,6 +945,177 @@ def reset_database(db_path: Path) -> None:
     if db_path.is_file():
         db_path.unlink()
     ensure_schema(db_path)
+
+
+def seed_sample_data(db_path: Path) -> int:
+    """Populate the database with starter records if it is empty."""
+    ensure_schema(db_path)
+    conn = connect(db_path)
+    try:
+        count = conn.execute("SELECT COUNT(*) FROM media").fetchone()[0]
+        if count > 0:
+            return 0
+        samples = [
+            {
+                "title": "Başlangıç",
+                "original_title": "Inception",
+                "media_type": "movie",
+                "is_anime": False,
+                "status": "completed",
+                "release_year": 2010,
+                "rating": 9,
+                "imdb_id": "tt1375666",
+                "tmdb_id": 27205,
+                "poster_path": "/oYuLEt3zVCKq57qu2F8dT7NIa6f.jpg",
+                "overview": "Rüyaların içine girerek bilinçaltından sır çalan bir hırsıza, bu kez bir fikri zihne yerleştirme görevi verilir.",
+                "genres": ["Bilim Kurgu", "Aksiyon", "Macera"],
+                "director": "Christopher Nolan",
+                "cast_members": ["Leonardo DiCaprio", "Joseph Gordon-Levitt", "Elliot Page", "Tom Hardy"],
+                "runtime": 148,
+                "imdb_rating": 8.8,
+                "tmdb_rating": 8.4,
+                "watched_at": "2026-10-18",
+                "is_favorite": 1,
+            },
+            {
+                "title": "Yıldızlararası",
+                "original_title": "Interstellar",
+                "media_type": "movie",
+                "is_anime": False,
+                "status": "completed",
+                "release_year": 2014,
+                "rating": 10,
+                "imdb_id": "tt0816692",
+                "tmdb_id": 157336,
+                "poster_path": "/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg",
+                "overview": "İnsanlığın geleceği tehlikedeyken bir grup kaşif, yeni bir yaşam alanı bulmak için solucan deliğinden geçerek yıldızlararası yolculuğa çıkar.",
+                "genres": ["Bilim Kurgu", "Dram", "Macera"],
+                "director": "Christopher Nolan",
+                "cast_members": ["Matthew McConaughey", "Anne Hathaway", "Jessica Chastain", "Michael Caine"],
+                "runtime": 169,
+                "imdb_rating": 8.7,
+                "tmdb_rating": 8.4,
+                "watched_at": "2026-10-25",
+                "is_favorite": 1,
+            },
+            {
+                "title": "Parazit",
+                "original_title": "Gisaengchung",
+                "media_type": "movie",
+                "is_anime": False,
+                "status": "completed",
+                "release_year": 2019,
+                "rating": 9,
+                "imdb_id": "tt6751668",
+                "tmdb_id": 496243,
+                "poster_path": "/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg",
+                "overview": "Yoksul Kim ailesi, varlıklı Park ailesinin evinde teker teker işe girerek iki aile arasında beklenmedik bir simbiyoz başlatır.",
+                "genres": ["Gerilim", "Dram", "Komedi"],
+                "director": "Bong Joon-ho",
+                "cast_members": ["Song Kang-ho", "Lee Sun-kyun", "Cho Yeo-jeong", "Choi Woo-shik"],
+                "runtime": 132,
+                "imdb_rating": 8.5,
+                "tmdb_rating": 8.5,
+                "watched_at": "2026-10-30",
+                "is_favorite": 1,
+            },
+            {
+                "title": "Ruhların Kaçışı",
+                "original_title": "Sen to Chihiro no kamikakushi",
+                "media_type": "movie",
+                "is_anime": True,
+                "status": "completed",
+                "release_year": 2001,
+                "rating": 10,
+                "imdb_id": "tt0245429",
+                "tmdb_id": 129,
+                "poster_path": "/39wmItIWsg5sZMyRUHLkWBcuVCM.jpg",
+                "overview": "Yeni bir mahalleye taşınırken ruhlar dünyasına adım atan 10 yaşındaki Chihiro, ailesini kurtarmak için hamamda çalışmak zorunda kalır.",
+                "genres": ["Animasyon", "Fantastik", "Macera"],
+                "director": "Hayao Miyazaki",
+                "cast_members": ["Rumi Hiiragi", "Miyu Irino", "Mari Natsuki"],
+                "runtime": 125,
+                "imdb_rating": 8.6,
+                "tmdb_rating": 8.5,
+                "watched_at": "2026-11-01",
+                "is_favorite": 1,
+            },
+            {
+                "title": "Breaking Bad",
+                "original_title": "Breaking Bad",
+                "media_type": "series",
+                "is_anime": False,
+                "status": "completed",
+                "release_year": 2008,
+                "rating": 10,
+                "imdb_id": "tt0903747",
+                "tmdb_id": 1396,
+                "poster_path": "/ztkUQFLlC19CCMYHW9o1zWhJRNq.jpg",
+                "overview": "Akciğer kanseri teşhisi konan kimya öğretmeni Walter White, ailesinin geleceğini güvenceye almak için eski öğrencisiyle üretime girer.",
+                "genres": ["Suç", "Dram", "Gerilim"],
+                "director": "Vince Gilligan",
+                "cast_members": ["Bryan Cranston", "Aaron Paul", "Anna Gunn", "Bob Odenkirk"],
+                "runtime": 47,
+                "imdb_rating": 9.5,
+                "tmdb_rating": 8.9,
+                "watched_at": "2026-11-02",
+                "is_favorite": 1,
+                "seasons": [(1, 7, 7), (2, 13, 13), (3, 13, 13), (4, 13, 13), (5, 16, 16)],
+            },
+            {
+                "title": "Attack on Titan",
+                "original_title": "Shingeki no Kyojin",
+                "media_type": "series",
+                "is_anime": True,
+                "status": "in_progress",
+                "release_year": 2013,
+                "rating": 9,
+                "imdb_id": "tt2560140",
+                "tmdb_id": 1429,
+                "poster_path": "/hTP1DtLGFamjfu8WqjnuQdP1n4i.jpg",
+                "overview": "İnsanlığı devasa surların ardına hapseden devlere karşı Eren Yeager ve Keşif Birliği'nin özgürlük mücadelesi.",
+                "genres": ["Animasyon", "Aksiyon", "Dram"],
+                "director": "Tetsuro Araki",
+                "cast_members": ["Yuki Kaji", "Yui Ishikawa", "Marina Inoue"],
+                "runtime": 24,
+                "imdb_rating": 9.1,
+                "tmdb_rating": 8.7,
+                "watched_at": "2026-11-03",
+                "is_favorite": 0,
+                "seasons": [(1, 25, 25), (2, 12, 12), (3, 22, 22), (4, 28, 14)],
+            },
+            {
+                "title": "Dune: Çöl Gezegeni Bölüm İki",
+                "original_title": "Dune: Part Two",
+                "media_type": "movie",
+                "is_anime": False,
+                "status": "planned",
+                "release_year": 2024,
+                "rating": None,
+                "imdb_id": "tt15239678",
+                "tmdb_id": 693134,
+                "poster_path": "/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg",
+                "overview": "Paul Atreides, ailesini yok eden komploculara karşı Fremenlerle birleşerek Arrakis ve evrenin kaderini belirleyecek savaşa yürür.",
+                "genres": ["Bilim Kurgu", "Macera"],
+                "director": "Denis Villeneuve",
+                "cast_members": ["Timothée Chalamet", "Zendaya", "Rebecca Ferguson", "Javier Bardem"],
+                "runtime": 166,
+                "imdb_rating": 8.5,
+                "tmdb_rating": 8.3,
+                "watched_at": None,
+                "is_favorite": 0,
+            },
+        ]
+        inserted = 0
+        for item in samples:
+            seasons = item.pop("seasons", [])
+            mid = add_media(conn, **item)
+            for sn, ep_count, watched in seasons:
+                add_series_season(conn, mid, sn, ep_count, watched)
+            inserted += 1
+        return inserted
+    finally:
+        conn.close()
 
 
 # =====================================================================
@@ -1526,6 +1706,13 @@ def poster_url_for(record: dict[str, Any]) -> str | None:
     by_slug = POSTERS_DIR / f"{slug}.jpg"
     if by_slug.is_file():
         return f"/static/posters/{slug}.jpg"
+    poster_path = record.get("poster_path")
+    if isinstance(poster_path, str) and poster_path.strip():
+        pp = poster_path.strip()
+        if pp.startswith(("http://", "https://")):
+            return pp
+        if pp.startswith("/"):
+            return tmdb_poster_url(pp)
     return None
 
 
@@ -1690,6 +1877,16 @@ def static_file_path(request_path: str) -> Path | None:
     relative_path = request_path.removeprefix(STATIC_URL_PREFIX)
     if not relative_path:
         return None
+    if request_path.startswith(POSTERS_URL_PREFIX):
+        poster_rel = request_path.removeprefix(POSTERS_URL_PREFIX)
+        if poster_rel:
+            poster_cand = (POSTERS_DIR / poster_rel).resolve()
+            try:
+                poster_cand.relative_to(POSTERS_DIR.resolve())
+                if poster_cand.is_file():
+                    return poster_cand
+            except ValueError:
+                return None
     candidate = (STATIC_DIR / relative_path).resolve()
     try:
         candidate.relative_to(STATIC_DIR.resolve())
@@ -1789,6 +1986,23 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
 
             if parsed.path.startswith(STATIC_URL_PREFIX):
                 asset = static_file_path(parsed.path)
+                if asset is None and parsed.path.startswith(POSTERS_URL_PREFIX):
+                    stem = Path(parsed.path.removeprefix(POSTERS_URL_PREFIX)).stem
+                    if stem.isdigit():
+                        try:
+                            conn = connect(db_path)
+                            row = conn.execute("SELECT poster_path FROM media WHERE id = ?", (int(stem),)).fetchone()
+                            conn.close()
+                            pp = row["poster_path"] if row and row["poster_path"] else None
+                            if isinstance(pp, str) and pp.strip():
+                                target = pp.strip() if pp.strip().startswith(("http://", "https://")) else tmdb_poster_url(pp.strip())
+                                self.send_response(HTTPStatus.FOUND.value)
+                                self.send_header("Location", target)
+                                self.send_header("Cache-Control", "public, max-age=86400")
+                                self.end_headers()
+                                return
+                        except Exception:
+                            pass
                 if asset is None:
                     self.send_json(HTTPStatus.NOT_FOUND, {"error": "Dosya bulunamadı."})
                     return
@@ -2346,6 +2560,7 @@ def main() -> int:
     subparsers.add_parser("init", help="Veritabanını oluştur ve şemayı hazırla")
     subparsers.add_parser("reset", help="Veritabanını sıfırla (tüm verileri siler)")
     subparsers.add_parser("migrate", help="Şemayı en son sürüme güncelle")
+    subparsers.add_parser("seed", help="Veritabanı boşsa örnek kayıtları ekle")
 
     # List Command
     list_parser = subparsers.add_parser("list", help="Kayıtları listele")
@@ -2397,6 +2612,11 @@ def main() -> int:
 
     if args.command == "migrate":
         print(f"Şema v{SCHEMA_VERSION} — migrasyon tamamlandı: {db_path}")
+        return 0
+
+    if args.command == "seed":
+        inserted = seed_sample_data(db_path)
+        print(f"Örnek veri hazır ({inserted} kayıt eklendi): {db_path}")
         return 0
 
     if args.command == "list":
