@@ -1,5 +1,7 @@
 # 🎬 Media Tracker
 
+![Media Tracker Ana Sayfa](static/screenshots/homepage.png)
+
 Kişisel film, dizi ve anime takip galerisi — Letterboxd tarzı poster duvarı ve analitik paneli.
 
 **Sıfır bağımlılık.** Python standart kütüphanesi + SQLite. Pip install gerektirmez.
