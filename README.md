@@ -27,7 +27,7 @@ Kişisel film, dizi ve anime takip galerisi — Letterboxd tarzı poster duvarı
 
 ```bash
 # 1. Klonla & dizine git
-git clone https://github.com/caymazyusuf72/filmarchive.git
+git clone https://github.com/yusufci/filmarchive.git
 cd filmarchive
 
 # 2. Web sunucusunu başlat (şemayı otomatik oluşturur)
